@@ -23,3 +23,7 @@ env/
 # Temp files
 *.tmp
 *.log
+
+# Next.js
+.next/
+node_modules/
