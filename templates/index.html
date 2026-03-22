@@ -1,0 +1,528 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Shorts Video Engine 🎬</title>
+  <style>
+    /* ---------- reset / base ---------- */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:        #0f0c29;
+      --surface:   #1e1a45;
+      --accent:    #6c5ce7;
+      --accent2:   #a29bfe;
+      --correct:   #00b894;
+      --error:     #d63031;
+      --text:      #ffffff;
+      --muted:     #b2bec3;
+      --radius:    12px;
+      --shadow:    0 4px 24px rgba(0,0,0,.45);
+    }
+
+    body {
+      font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+      background: linear-gradient(160deg, var(--bg) 0%, #302b63 60%, #24243e 100%);
+      min-height: 100vh;
+      color: var(--text);
+      padding: 1.5rem 1rem 4rem;
+    }
+
+    h1 { font-size: clamp(1.4rem, 5vw, 2.2rem); text-align: center; margin-bottom: .25rem; }
+    .subtitle { text-align: center; color: var(--muted); font-size: .9rem; margin-bottom: 2rem; }
+
+    /* ---------- card ---------- */
+    .card {
+      background: var(--surface);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      padding: 1.25rem 1.5rem;
+      margin-bottom: 1.5rem;
+    }
+    .card h2 { font-size: 1.1rem; margin-bottom: 1rem; color: var(--accent2); }
+
+    /* ---------- form elements ---------- */
+    label { display: block; font-size: .85rem; color: var(--muted); margin-bottom: .3rem; }
+
+    input[type="text"],
+    input[type="number"],
+    textarea,
+    select {
+      width: 100%;
+      background: rgba(255,255,255,.07);
+      border: 1px solid rgba(255,255,255,.15);
+      border-radius: 8px;
+      color: var(--text);
+      font-size: .95rem;
+      padding: .55rem .8rem;
+      margin-bottom: 1rem;
+      outline: none;
+      transition: border-color .2s;
+    }
+    input[type="text"]:focus,
+    input[type="number"]:focus,
+    textarea:focus,
+    select:focus { border-color: var(--accent); }
+
+    textarea { resize: vertical; min-height: 90px; }
+
+    .row { display: flex; gap: .75rem; flex-wrap: wrap; }
+    .row > * { flex: 1 1 140px; }
+
+    /* ---------- buttons ---------- */
+    .btn {
+      display: inline-flex; align-items: center; justify-content: center; gap: .4rem;
+      border: none; border-radius: 8px; cursor: pointer;
+      font-size: .95rem; font-weight: 600; padding: .65rem 1.3rem;
+      transition: opacity .2s, transform .1s;
+      text-decoration: none;
+    }
+    .btn:active { transform: scale(.97); }
+    .btn:disabled { opacity: .45; cursor: not-allowed; }
+    .btn-primary   { background: var(--accent);  color: #fff; }
+    .btn-secondary { background: rgba(255,255,255,.1); color: var(--text); }
+    .btn-success   { background: var(--correct); color: #fff; }
+    .btn-danger    { background: var(--error);   color: #fff; }
+    .btn-sm { padding: .45rem .9rem; font-size: .85rem; }
+
+    /* ---------- question builder ---------- */
+    .question-block {
+      background: rgba(255,255,255,.04);
+      border: 1px solid rgba(255,255,255,.08);
+      border-radius: var(--radius);
+      padding: 1rem 1.1rem 0.5rem;
+      margin-bottom: 1rem;
+      position: relative;
+    }
+    .question-block h3 {
+      font-size: .95rem; color: var(--accent2); margin-bottom: .75rem;
+    }
+    .remove-q {
+      position: absolute; top: .7rem; right: .8rem;
+      background: transparent; border: none; color: var(--muted);
+      font-size: 1.1rem; cursor: pointer; line-height: 1;
+    }
+    .remove-q:hover { color: var(--error); }
+
+    .options-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: .5rem .75rem;
+    }
+    .option-row { display: flex; align-items: center; gap: .4rem; }
+    .option-row .opt-label {
+      width: 1.6rem; text-align: center; font-weight: 700;
+      color: var(--accent2); flex-shrink: 0;
+    }
+    .option-row input[type="text"] { margin-bottom: 0; }
+
+    .correct-row { margin: .75rem 0 .5rem; }
+    .correct-row label { display: inline; margin-right: .5rem; }
+
+    /* ---------- JSON tab ---------- */
+    .tabs { display: flex; gap: .5rem; margin-bottom: 1rem; }
+    .tab-btn {
+      background: rgba(255,255,255,.07);
+      border: 1px solid rgba(255,255,255,.12);
+      border-radius: 6px;
+      color: var(--muted); cursor: pointer; padding: .4rem .9rem;
+      font-size: .85rem; transition: all .2s;
+    }
+    .tab-btn.active { background: var(--accent); border-color: var(--accent); color: #fff; }
+    .tab-panel { display: none; }
+    .tab-panel.active { display: block; }
+
+    /* ---------- progress / status ---------- */
+    #status-section { display: none; }
+    .status-box {
+      text-align: center; padding: 1.5rem;
+    }
+    .spinner {
+      width: 44px; height: 44px;
+      border: 4px solid rgba(255,255,255,.15);
+      border-top-color: var(--accent);
+      border-radius: 50%;
+      animation: spin .8s linear infinite;
+      margin: 0 auto 1rem;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .status-text { color: var(--muted); font-size: .95rem; }
+    .status-error { color: var(--error); }
+
+    /* ---------- video player ---------- */
+    #video-section { display: none; }
+    video {
+      width: 100%; border-radius: var(--radius);
+      background: #000; display: block;
+      max-height: 70vh; object-fit: contain;
+    }
+    .video-actions { display: flex; gap: .75rem; margin-top: .75rem; flex-wrap: wrap; }
+
+    /* ---------- config row ---------- */
+    .config-row { display: flex; gap: .75rem; flex-wrap: wrap; }
+    .config-row > * { flex: 1 1 100px; }
+
+    /* ---------- file upload ---------- */
+    .file-drop {
+      border: 2px dashed rgba(255,255,255,.2);
+      border-radius: var(--radius);
+      padding: 2rem;
+      text-align: center;
+      color: var(--muted);
+      cursor: pointer;
+      transition: border-color .2s;
+    }
+    .file-drop:hover { border-color: var(--accent); }
+    .file-drop input { display: none; }
+
+    /* ---------- helpers ---------- */
+    .mt-1 { margin-top: .5rem; }
+    .mb-0 { margin-bottom: 0 !important; }
+    .text-muted { color: var(--muted); font-size: .82rem; }
+
+    @media (max-width: 480px) {
+      .options-grid { grid-template-columns: 1fr; }
+      .config-row > * { flex: 1 1 100%; }
+    }
+  </style>
+</head>
+<body>
+
+<h1>🎬 Shorts Video Engine</h1>
+<p class="subtitle">Generate MCQ quiz Short videos — playable &amp; downloadable on any device</p>
+
+<!-- ========================================================
+     INPUT SECTION
+     ======================================================== -->
+<div class="card">
+  <h2>📝 Quiz Input</h2>
+
+  <!-- Tabs -->
+  <div class="tabs">
+    <button class="tab-btn active" data-tab="form" onclick="switchTab('form')">Form Builder</button>
+    <button class="tab-btn" data-tab="json" onclick="switchTab('json')">JSON / File Upload</button>
+  </div>
+
+  <!-- ── Form tab ── -->
+  <div id="tab-form" class="tab-panel active">
+
+    <label for="quiz-title">Quiz title</label>
+    <input type="text" id="quiz-title" placeholder="e.g. Science Quiz" value="MCQ Quiz" />
+
+    <label>Hashtags <span class="text-muted">(comma-separated)</span></label>
+    <input type="text" id="quiz-hashtags" value="#shorts, #quiz, #mcq" />
+
+    <div id="questions-container"></div>
+
+    <button class="btn btn-secondary btn-sm mt-1" onclick="addQuestion()">＋ Add Question</button>
+  </div>
+
+  <!-- ── JSON tab ── -->
+  <div id="tab-json" class="tab-panel">
+    <div class="file-drop" onclick="document.getElementById('json-file').click()">
+      <input type="file" id="json-file" accept=".json" onchange="handleJsonFile(event)" />
+      <p>📂 Click or drag a <strong>.json</strong> file here</p>
+      <p class="text-muted mt-1">or edit the JSON directly below</p>
+    </div>
+    <textarea id="json-input" style="min-height:200px;margin-top:.75rem;font-family:monospace;font-size:.8rem"
+      placeholder='{"title":"My Quiz","questions":[{"question":"...","options":["A","B","C","D"],"correct_option":0,"explanation":"..."}]}'></textarea>
+  </div>
+</div>
+
+<!-- ========================================================
+     VIDEO CONFIG
+     ======================================================== -->
+<div class="card">
+  <h2>⚙️ Video Settings</h2>
+  <div class="config-row">
+    <div>
+      <label>Question slide (s)</label>
+      <input type="number" id="cfg-q-dur" value="4.0" step="0.5" min="1" />
+    </div>
+    <div>
+      <label>Think pause (s)</label>
+      <input type="number" id="cfg-t-dur" value="3.0" step="0.5" min="1" />
+    </div>
+    <div>
+      <label>Answer slide (s)</label>
+      <input type="number" id="cfg-a-dur" value="3.5" step="0.5" min="1" />
+    </div>
+    <div>
+      <label>🔊 Audio (TTS)</label>
+      <select id="cfg-audio">
+        <option value="false">Disabled (faster)</option>
+        <option value="true">Enabled (gTTS)</option>
+      </select>
+    </div>
+  </div>
+</div>
+
+<!-- ========================================================
+     GENERATE BUTTON
+     ======================================================== -->
+<div style="text-align:center;margin-bottom:1.5rem">
+  <button id="gen-btn" class="btn btn-primary" onclick="startGeneration()" style="font-size:1.1rem;padding:.8rem 2.5rem">
+    🚀 Generate Video
+  </button>
+</div>
+
+<!-- ========================================================
+     STATUS
+     ======================================================== -->
+<div id="status-section" class="card">
+  <div class="status-box">
+    <div class="spinner" id="spinner"></div>
+    <p id="status-text" class="status-text">Initializing…</p>
+  </div>
+</div>
+
+<!-- ========================================================
+     VIDEO PLAYER + DOWNLOAD
+     ======================================================== -->
+<div id="video-section" class="card">
+  <h2>▶️ Your Video</h2>
+  <video id="video-player" controls playsinline></video>
+  <div class="video-actions">
+    <a id="download-btn" class="btn btn-success" href="#" download="quiz_video.mp4">
+      ⬇️ Download MP4
+    </a>
+    <button class="btn btn-secondary" onclick="resetUI()">🔄 Make Another</button>
+  </div>
+</div>
+
+<!-- ========================================================
+     JAVASCRIPT
+     ======================================================== -->
+<script>
+  /* ─── State ─── */
+  let questionCount = 0;
+  let pollTimer = null;
+
+  /* ─── Tab switching ─── */
+  function switchTab(name) {
+    document.querySelectorAll('.tab-btn').forEach(b => {
+      b.classList.toggle('active', b.dataset.tab === name);
+    });
+    document.getElementById('tab-form').classList.toggle('active', name === 'form');
+    document.getElementById('tab-json').classList.toggle('active', name === 'json');
+  }
+
+  /* ─── Question builder ─── */
+  function addQuestion() {
+    questionCount++;
+    const n = questionCount;
+    const container = document.getElementById('questions-container');
+    const div = document.createElement('div');
+    div.className = 'question-block';
+    div.id = `q-block-${n}`;
+    div.innerHTML = `
+      <h3>Question ${n}</h3>
+      <button class="remove-q" title="Remove question" onclick="removeQuestion(${n})">✕</button>
+
+      <label>Question text</label>
+      <input type="text" id="q-text-${n}" placeholder="Enter your question…" />
+
+      <label>Options</label>
+      <div class="options-grid">
+        ${['A','B','C','D'].map((l,i) => `
+          <div class="option-row">
+            <span class="opt-label">${l}</span>
+            <input type="text" id="q-opt-${n}-${i}" placeholder="Option ${l}" class="mb-0" />
+          </div>`).join('')}
+      </div>
+
+      <div class="correct-row">
+        <label>Correct answer:</label>
+        ${['A','B','C','D'].map((l,i) => `
+          <label style="display:inline-flex;align-items:center;gap:.25rem;margin-right:.6rem;cursor:pointer">
+            <input type="radio" name="correct-${n}" value="${i}" ${i===0?'checked':''} />
+            ${l}
+          </label>`).join('')}
+      </div>
+
+      <label>Explanation <span class="text-muted">(optional)</span></label>
+      <input type="text" id="q-expl-${n}" placeholder="Brief explanation shown after the answer…" />
+    `;
+    container.appendChild(div);
+  }
+
+  function removeQuestion(n) {
+    const el = document.getElementById(`q-block-${n}`);
+    if (el) el.remove();
+  }
+
+  /* ─── JSON file upload ─── */
+  function handleJsonFile(e) {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = ev => {
+      document.getElementById('json-input').value = ev.target.result;
+    };
+    reader.readAsText(file);
+  }
+
+  /* ─── Build quiz payload ─── */
+  function buildPayload() {
+    const activeTab = document.getElementById('tab-form').classList.contains('active') ? 'form' : 'json';
+
+    let quiz;
+    if (activeTab === 'json') {
+      const raw = document.getElementById('json-input').value.trim();
+      if (!raw) throw new Error('Please enter or upload a JSON quiz.');
+      quiz = JSON.parse(raw);
+    } else {
+      // Collect questions from form
+      const blocks = document.querySelectorAll('.question-block');
+      if (blocks.length === 0) throw new Error('Add at least one question.');
+
+      const questions = [];
+      for (const block of blocks) {
+        const n = block.id.replace('q-block-', '');
+        const qText = document.getElementById(`q-text-${n}`).value.trim();
+        if (!qText) throw new Error(`Question ${n} text is empty.`);
+
+        const options = [0,1,2,3].map(i => {
+          const v = document.getElementById(`q-opt-${n}-${i}`).value.trim();
+          if (!v) throw new Error(`Question ${n}: Option ${['A','B','C','D'][i]} is empty.`);
+          return v;
+        });
+
+        const correctRadio = document.querySelector(`input[name="correct-${n}"]:checked`);
+        const correct = correctRadio ? parseInt(correctRadio.value) : 0;
+        const expl = document.getElementById(`q-expl-${n}`).value.trim() || null;
+
+        questions.push({ question: qText, options, correct_option: correct, explanation: expl });
+      }
+
+      const title = document.getElementById('quiz-title').value.trim() || 'MCQ Quiz';
+      const hashtagsRaw = document.getElementById('quiz-hashtags').value;
+      const hashtags = hashtagsRaw.split(',').map(t => t.trim()).filter(Boolean);
+
+      quiz = { title, questions, hashtags };
+    }
+
+    const config = {
+      audio_enabled: document.getElementById('cfg-audio').value === 'true',
+      question_duration: parseFloat(document.getElementById('cfg-q-dur').value),
+      think_duration:    parseFloat(document.getElementById('cfg-t-dur').value),
+      answer_duration:   parseFloat(document.getElementById('cfg-a-dur').value),
+    };
+
+    return { quiz, config };
+  }
+
+  /* ─── Generation flow ─── */
+  async function startGeneration() {
+    let payload;
+    try {
+      payload = buildPayload();
+    } catch (err) {
+      alert(err.message);
+      return;
+    }
+
+    // Show status section, hide video
+    document.getElementById('gen-btn').disabled = true;
+    document.getElementById('status-section').style.display = 'block';
+    document.getElementById('video-section').style.display = 'none';
+    document.getElementById('spinner').style.display = 'block';
+    setStatus('Submitting job…');
+
+    // Clear any previous polling interval
+    if (pollTimer !== null) {
+      clearInterval(pollTimer);
+      pollTimer = null;
+    }
+
+    let jobId;
+    try {
+      const resp = await fetch('/generate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      const data = await resp.json();
+      if (!resp.ok) throw new Error(data.error || 'Server error');
+      jobId = data.job_id;
+    } catch (err) {
+      showError('Failed to start: ' + err.message);
+      return;
+    }
+
+    setStatus('Generating video… this may take a minute ⏳');
+    pollTimer = setInterval(() => pollStatus(jobId), 3000);
+  }
+
+  let _pollFailures = 0;
+
+  async function pollStatus(jobId) {
+    try {
+      const resp = await fetch(`/status/${jobId}`);
+      const data = await resp.json();
+      _pollFailures = 0;
+      if (data.status === 'done') {
+        clearInterval(pollTimer);
+        pollTimer = null;
+        showVideo(jobId);
+      } else if (data.status === 'error') {
+        clearInterval(pollTimer);
+        pollTimer = null;
+        showError('Generation failed: ' + (data.error || 'unknown error'));
+      }
+      // else: still running — keep polling
+    } catch (err) {
+      _pollFailures++;
+      console.error('Poll error:', err);
+      if (_pollFailures >= 5) {
+        clearInterval(pollTimer);
+        pollTimer = null;
+        showError('Lost connection to server. Please refresh and try again.');
+      }
+    }
+  }
+
+  function showVideo(jobId) {
+    document.getElementById('spinner').style.display = 'none';
+    setStatus('✅ Video ready!');
+
+    const videoUrl = `/video/${jobId}`;
+    const downloadUrl = `/download/${jobId}`;
+
+    const player = document.getElementById('video-player');
+    player.src = videoUrl;
+    player.load();
+
+    document.getElementById('download-btn').href = downloadUrl;
+    document.getElementById('video-section').style.display = 'block';
+    document.getElementById('video-section').scrollIntoView({ behavior: 'smooth' });
+    document.getElementById('gen-btn').disabled = false;
+  }
+
+  function showError(msg) {
+    document.getElementById('spinner').style.display = 'none';
+    document.getElementById('status-text').textContent = msg;
+    document.getElementById('status-text').className = 'status-text status-error';
+    document.getElementById('gen-btn').disabled = false;
+  }
+
+  function setStatus(msg) {
+    const el = document.getElementById('status-text');
+    el.textContent = msg;
+    el.className = 'status-text';
+  }
+
+  function resetUI() {
+    document.getElementById('status-section').style.display = 'none';
+    document.getElementById('video-section').style.display = 'none';
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+
+  /* ─── Seed one question on load ─── */
+  addQuestion();
+</script>
+
+</body>
+</html>

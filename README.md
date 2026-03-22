@@ -14,6 +14,7 @@ Generate YouTube / Instagram **Shorts-format vertical videos** (1080×1920, 9:16
 - 🔊 **Optional TTS audio** (Google TTS via `gTTS`) — disable with `--no-audio` for offline use
 - 📦 Three input modes: **JSON file**, **interactive CLI**, or built-in **demo**
 - ⚙️ Fully configurable resolution, FPS, and slide durations
+- 🌐 **Web interface** — usable on any device (desktop, tablet, phone) with in-browser video playback and one-click download
 
 ---
 
@@ -29,19 +30,42 @@ pip install -r requirements.txt
 > On Ubuntu/Debian: \`sudo apt install ffmpeg\`
 > On macOS: \`brew install ffmpeg\`
 
-### 2. Generate a demo video
+### 2. Web interface (recommended — works on any device)
+
+\`\`\`bash
+python app.py
+\`\`\`
+
+Then open **http://localhost:5000** in any browser — desktop, tablet, or phone.
+
+![Web interface](https://github.com/user-attachments/assets/0578f7cd-41e7-4b20-b511-4d2141178a01)
+
+The web UI lets you:
+- Fill in quiz questions with a form builder **or** paste/upload a JSON file
+- Adjust timing and audio settings
+- Watch the generated video directly in the browser
+- Download the MP4 with one click
+
+To expose it on your local network (e.g. access from a phone on the same Wi-Fi):
+
+\`\`\`bash
+python app.py          # already binds to 0.0.0.0 by default
+# then open http://<your-machine-ip>:5000 on any device
+\`\`\`
+
+### 3. Generate a demo video (CLI)
 
 \`\`\`bash
 python main.py --demo --no-audio --output output/demo.mp4
 \`\`\`
 
-### 3. Generate from a JSON file
+### 4. Generate from a JSON file (CLI)
 
 \`\`\`bash
 python main.py --input examples/sample_questions.json --output output/quiz.mp4
 \`\`\`
 
-### 4. Interactive mode
+### 5. Interactive mode (CLI)
 
 \`\`\`bash
 python main.py --interactive --output output/my_quiz.mp4
@@ -118,12 +142,15 @@ shorts-video-engine/
 │   ├── slide_generator.py # PIL-based slide image generation
 │   ├── audio_generator.py # gTTS text-to-speech helpers
 │   └── video_engine.py    # MoviePy video assembly
+├── templates/
+│   └── index.html         # Web UI (served by Flask)
 ├── tests/
 │   ├── test_models.py
 │   ├── test_slide_generator.py
 │   └── test_video_engine.py
 ├── examples/
 │   └── sample_questions.json
+├── app.py                 # Flask web server entry point
 ├── main.py                # CLI entry point
 └── requirements.txt
 \`\`\`
