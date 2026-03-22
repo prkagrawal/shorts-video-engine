@@ -1,0 +1,1063 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Shorts Video Engine 🎬</title>
+  <style>
+    /* ── reset / base ── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:      #0f0c29;
+      --surface: #1e1a45;
+      --accent:  #6c5ce7;
+      --accent2: #a29bfe;
+      --correct: #00b894;
+      --error:   #d63031;
+      --text:    #ffffff;
+      --muted:   #b2bec3;
+      --radius:  12px;
+      --shadow:  0 4px 24px rgba(0,0,0,.45);
+    }
+
+    body {
+      font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+      background: linear-gradient(160deg, var(--bg) 0%, #302b63 60%, #24243e 100%);
+      min-height: 100vh;
+      color: var(--text);
+      padding: 1.5rem 1rem 4rem;
+    }
+
+    h1 { font-size: clamp(1.4rem, 5vw, 2.2rem); text-align: center; margin-bottom: .25rem; }
+    .subtitle { text-align: center; color: var(--muted); font-size: .9rem; margin-bottom: 2rem; }
+
+    /* ── card ── */
+    .card {
+      background: var(--surface);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      padding: 1.25rem 1.5rem;
+      margin-bottom: 1.5rem;
+    }
+    .card h2 { font-size: 1.1rem; margin-bottom: 1rem; color: var(--accent2); }
+
+    /* ── form elements ── */
+    label { display: block; font-size: .85rem; color: var(--muted); margin-bottom: .3rem; }
+
+    input[type="text"],
+    input[type="number"],
+    textarea,
+    select {
+      width: 100%;
+      background: rgba(255,255,255,.07);
+      border: 1px solid rgba(255,255,255,.15);
+      border-radius: 8px;
+      color: var(--text);
+      font-size: .95rem;
+      padding: .55rem .8rem;
+      margin-bottom: 1rem;
+      outline: none;
+      transition: border-color .2s;
+    }
+    input[type="text"]:focus,
+    input[type="number"]:focus,
+    textarea:focus,
+    select:focus { border-color: var(--accent); }
+
+    textarea { resize: vertical; min-height: 90px; }
+
+    /* ── buttons ── */
+    .btn {
+      display: inline-flex; align-items: center; justify-content: center; gap: .4rem;
+      border: none; border-radius: 8px; cursor: pointer;
+      font-size: .95rem; font-weight: 600; padding: .65rem 1.3rem;
+      transition: opacity .2s, transform .1s;
+      text-decoration: none;
+    }
+    .btn:active { transform: scale(.97); }
+    .btn:disabled { opacity: .45; cursor: not-allowed; }
+    .btn-primary   { background: var(--accent);  color: #fff; }
+    .btn-secondary { background: rgba(255,255,255,.1); color: var(--text); }
+    .btn-success   { background: var(--correct); color: #fff; }
+    .btn-sm { padding: .45rem .9rem; font-size: .85rem; }
+
+    /* ── question builder ── */
+    .question-block {
+      background: rgba(255,255,255,.04);
+      border: 1px solid rgba(255,255,255,.08);
+      border-radius: var(--radius);
+      padding: 1rem 1.1rem .5rem;
+      margin-bottom: 1rem;
+      position: relative;
+    }
+    .question-block h3 { font-size: .95rem; color: var(--accent2); margin-bottom: .75rem; }
+    .remove-q {
+      position: absolute; top: .7rem; right: .8rem;
+      background: transparent; border: none; color: var(--muted);
+      font-size: 1.1rem; cursor: pointer; line-height: 1;
+    }
+    .remove-q:hover { color: var(--error); }
+
+    .options-grid { display: grid; grid-template-columns: 1fr 1fr; gap: .5rem .75rem; }
+    .option-row { display: flex; align-items: center; gap: .4rem; }
+    .option-row .opt-label {
+      width: 1.6rem; text-align: center; font-weight: 700;
+      color: var(--accent2); flex-shrink: 0;
+    }
+    .option-row input[type="text"] { margin-bottom: 0; }
+    .correct-row { margin: .75rem 0 .5rem; }
+    .correct-row label { display: inline; margin-right: .5rem; }
+
+    /* ── tabs ── */
+    .tabs { display: flex; gap: .5rem; margin-bottom: 1rem; }
+    .tab-btn {
+      background: rgba(255,255,255,.07);
+      border: 1px solid rgba(255,255,255,.12);
+      border-radius: 6px;
+      color: var(--muted); cursor: pointer; padding: .4rem .9rem;
+      font-size: .85rem; transition: all .2s;
+    }
+    .tab-btn.active { background: var(--accent); border-color: var(--accent); color: #fff; }
+    .tab-panel { display: none; }
+    .tab-panel.active { display: block; }
+
+    /* ── config ── */
+    .config-row { display: flex; gap: .75rem; flex-wrap: wrap; }
+    .config-row > * { flex: 1 1 100px; }
+
+    /* ── file drop ── */
+    .file-drop {
+      border: 2px dashed rgba(255,255,255,.2);
+      border-radius: var(--radius);
+      padding: 2rem;
+      text-align: center; color: var(--muted); cursor: pointer;
+      transition: border-color .2s;
+    }
+    .file-drop:hover { border-color: var(--accent); }
+    .file-drop input { display: none; }
+
+    /* ── progress ── */
+    #status-section { display: none; }
+    .status-box { text-align: center; padding: 1.5rem; }
+    .spinner {
+      width: 44px; height: 44px;
+      border: 4px solid rgba(255,255,255,.15);
+      border-top-color: var(--accent);
+      border-radius: 50%;
+      animation: spin .8s linear infinite;
+      margin: 0 auto 1rem;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .status-text { color: var(--muted); font-size: .95rem; margin-bottom: .75rem; }
+    .status-error { color: var(--error); }
+
+    .progress-wrap {
+      height: 8px; background: rgba(255,255,255,.1);
+      border-radius: 4px; overflow: hidden; margin: .5rem 0;
+    }
+    .progress-fill {
+      height: 100%; background: linear-gradient(90deg, var(--accent), var(--accent2));
+      border-radius: 4px; transition: width .25s ease; width: 0;
+    }
+    .progress-label { font-size: .8rem; color: var(--muted); }
+
+    /* ── video player ── */
+    #video-section { display: none; }
+    video {
+      width: 100%; border-radius: var(--radius);
+      background: #000; display: block;
+      max-height: 70vh; object-fit: contain;
+    }
+    .video-actions { display: flex; gap: .75rem; margin-top: .75rem; flex-wrap: wrap; }
+
+    /* ── helpers ── */
+    .mt-1 { margin-top: .5rem; }
+    .mb-0 { margin-bottom: 0 !important; }
+    .text-muted { color: var(--muted); font-size: .82rem; }
+    .info-note {
+      background: rgba(108,92,231,.12); border: 1px solid rgba(108,92,231,.25);
+      border-radius: 8px; padding: .55rem .85rem;
+      font-size: .82rem; color: var(--accent2); margin-bottom: 1rem;
+    }
+
+    @media (max-width: 480px) {
+      .options-grid { grid-template-columns: 1fr; }
+      .config-row > * { flex: 1 1 100%; }
+    }
+  </style>
+</head>
+<body>
+
+<h1>🎬 Shorts Video Engine</h1>
+<p class="subtitle">Generate MCQ quiz Short videos · runs entirely in your browser</p>
+
+<!-- ── Quiz Input ─────────────────────────────────────────── -->
+<div class="card">
+  <h2>📝 Quiz Input</h2>
+
+  <div class="tabs">
+    <button class="tab-btn active" data-tab="form" onclick="switchTab('form')">Form Builder</button>
+    <button class="tab-btn" data-tab="json" onclick="switchTab('json')">JSON / File Upload</button>
+  </div>
+
+  <div id="tab-form" class="tab-panel active">
+    <label for="quiz-title">Quiz title</label>
+    <input type="text" id="quiz-title" value="MCQ Quiz" placeholder="e.g. Science Quiz" />
+
+    <label>Hashtags <span class="text-muted">(comma-separated)</span></label>
+    <input type="text" id="quiz-hashtags" value="#shorts, #quiz, #mcq" />
+
+    <div id="questions-container"></div>
+    <button class="btn btn-secondary btn-sm mt-1" onclick="addQuestion()">＋ Add Question</button>
+    <span class="text-muted" style="margin-left:.5rem">up to 10 questions</span>
+  </div>
+
+  <div id="tab-json" class="tab-panel">
+    <div class="file-drop" onclick="document.getElementById('json-file').click()">
+      <input type="file" id="json-file" accept=".json" onchange="handleJsonFile(event)" />
+      <p>📂 Click or drag a <strong>.json</strong> file here</p>
+      <p class="text-muted mt-1">or edit the JSON directly below</p>
+    </div>
+    <textarea id="json-input"
+      style="min-height:200px;margin-top:.75rem;font-family:monospace;font-size:.8rem"
+      placeholder='{"title":"My Quiz","questions":[{"question":"...","options":["A","B","C","D"],"correct_option":0}]}'></textarea>
+  </div>
+</div>
+
+<!-- ── Video Settings ──────────────────────────────────────── -->
+<div class="card">
+  <h2>⚙️ Video Settings</h2>
+  <div class="config-row">
+    <div>
+      <label>Question slide (s)</label>
+      <input type="number" id="cfg-q-dur" value="4.0" step="0.5" min="1" />
+    </div>
+    <div>
+      <label>Think pause (s)</label>
+      <input type="number" id="cfg-t-dur" value="3.0" step="0.5" min="1" />
+    </div>
+    <div>
+      <label>Answer slide (s)</label>
+      <input type="number" id="cfg-a-dur" value="3.5" step="0.5" min="1" />
+    </div>
+    <div>
+      <label>Quality</label>
+      <select id="cfg-quality">
+        <option value="hd">HD 1080p</option>
+        <option value="fast">Fast 540p</option>
+      </select>
+    </div>
+  </div>
+  <p class="info-note">
+    🔇 Video is generated without audio. Add your own music or voiceover using any video editor after downloading.
+  </p>
+</div>
+
+<!-- ── Generate ────────────────────────────────────────────── -->
+<div style="text-align:center;margin-bottom:1.5rem">
+  <button id="gen-btn" class="btn btn-primary" onclick="startGeneration()"
+    style="font-size:1.1rem;padding:.8rem 2.5rem">
+    🚀 Generate Video
+  </button>
+</div>
+
+<!-- ── Status / Progress ──────────────────────────────────── -->
+<div id="status-section" class="card">
+  <div class="status-box">
+    <div class="spinner" id="spinner"></div>
+    <p id="status-text" class="status-text">Initializing…</p>
+    <div class="progress-wrap" id="progress-wrap" style="display:none">
+      <div class="progress-fill" id="progress-fill"></div>
+    </div>
+    <p class="progress-label" id="progress-label"></p>
+  </div>
+</div>
+
+<!-- ── Video Player + Download ────────────────────────────── -->
+<div id="video-section" class="card">
+  <h2>▶️ Your Video</h2>
+  <video id="video-player" controls playsinline></video>
+  <div class="video-actions">
+    <a id="download-btn" class="btn btn-success" href="#" download="quiz_video.mp4">
+      ⬇️ Download MP4
+    </a>
+    <button class="btn btn-secondary" onclick="resetUI()">🔄 Make Another</button>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════════════════════
+     JAVASCRIPT — all generation runs in the browser
+     ════════════════════════════════════════════════════════════ -->
+<script type="module">
+
+/* ── mp4-muxer from CDN (H.264 MP4 encoding without a server) ── */
+let MuxerClass = null, ArrayBufferTargetClass = null;
+try {
+  const mod = await import('https://cdn.jsdelivr.net/npm/mp4-muxer@5/build/mp4-muxer.mjs');
+  MuxerClass = mod.Muxer;
+  ArrayBufferTargetClass = mod.ArrayBufferTarget;
+} catch (_) { /* mp4-muxer unavailable — will fall back to MediaRecorder */ }
+
+/* ═══════════════════════════════════════════════════════════
+   CANVAS CONSTANTS  (match Python config.py exactly)
+   ═══════════════════════════════════════════════════════════ */
+
+const RESOLUTIONS = { hd: { w: 1080, h: 1920 }, fast: { w: 540, h: 960 } };
+const REF = { w: 1080, h: 1920 };   // reference values all Python sizes are based on
+
+/** Scale a value from the 1080×1920 reference to the current canvas size. */
+const sx = (v, W) => v * W / REF.w;
+const sy = (v, H) => v * H / REF.h;
+
+/** CSS color helpers */
+const rgb  = ([r,g,b])        => `rgb(${r},${g},${b})`;
+const rgba = ([r,g,b], a)     => `rgba(${r},${g},${b},${a})`;
+
+const PAL = {
+  bgTop:   [15,  12,  41 ],
+  bgBot:   [48,  43,  99 ],
+  accent:  [108, 92,  231],
+  correct: [0,   184, 148],
+  text:    [255, 255, 255],
+  muted:   [178, 190, 195],
+};
+
+const SLIDES_PER_QUESTION = 3; // question + think + answer
+const MAX_QUESTIONS        = 10;
+
+/* ═══════════════════════════════════════════════════════════
+   PRIMITIVE DRAWING HELPERS
+   ═══════════════════════════════════════════════════════════ */
+
+function drawBg(ctx) {
+  const { width: W, height: H } = ctx.canvas;
+  const g = ctx.createLinearGradient(0, 0, 0, H);
+  g.addColorStop(0, rgb(PAL.bgTop));
+  g.addColorStop(1, rgb(PAL.bgBot));
+  ctx.fillStyle = g;
+  ctx.fillRect(0, 0, W, H);
+}
+
+function fillRR(ctx, x, y, w, h, r, fill) {
+  ctx.fillStyle = fill;
+  ctx.beginPath();
+  ctx.roundRect(x, y, w, h, r);
+  ctx.fill();
+}
+
+function fillCircle(ctx, cx, cy, r, fill) {
+  ctx.fillStyle = fill;
+  ctx.beginPath();
+  ctx.arc(cx, cy, r, 0, Math.PI * 2);
+  ctx.fill();
+}
+
+function hline(ctx, x0, x1, y, color, lw) {
+  ctx.save();
+  ctx.strokeStyle = color;
+  ctx.lineWidth = lw;
+  ctx.beginPath(); ctx.moveTo(x0, y); ctx.lineTo(x1, y); ctx.stroke();
+  ctx.restore();
+}
+
+/**
+ * Draw word-wrapped text, returning the y below the last line.
+ * textBaseline is always 'top' inside; caller's state is fully restored.
+ */
+function drawWrapped(ctx, text, x, y, maxW, font, fill, extraLeading = 0) {
+  ctx.save();
+  ctx.font = font;
+  ctx.fillStyle = fill;
+  ctx.textBaseline = 'top';
+  ctx.textAlign = 'left';
+
+  const sizePx = parseInt(font.match(/(\d+)px/)?.[1] ?? '40');
+  const lineH = sizePx * 1.25 + extraLeading;
+  const words = text.split(' ');
+  let line = '', curY = y;
+
+  for (const word of words) {
+    const test = line ? `${line} ${word}` : word;
+    if (ctx.measureText(test).width > maxW && line) {
+      ctx.fillText(line, x, curY);
+      line = word;
+      curY += lineH;
+    } else {
+      line = test;
+    }
+  }
+  if (line) { ctx.fillText(line, x, curY); curY += lineH; }
+
+  ctx.restore();
+  return curY;
+}
+
+/* ═══════════════════════════════════════════════════════════
+   SLIDE GENERATORS  (faithfully mirrors slide_generator.py)
+   ═══════════════════════════════════════════════════════════ */
+
+function drawIntroSlide(ctx, title, totalQ) {
+  const W = ctx.canvas.width, H = ctx.canvas.height;
+  const pad = sx(80, W), cw = W - 2 * pad;
+  drawBg(ctx);
+  ctx.save();
+
+  const midY = H / 2 - sy(120, H);
+  const barH = sy(12, H);
+
+  /* top accent bar */
+  ctx.fillStyle = rgb(PAL.accent);
+  ctx.fillRect(pad, midY - sy(220, H), cw, barH);
+
+  /* title */
+  drawWrapped(ctx, title, pad, midY - sy(180, H), cw,
+    `bold ${sx(72, W)}px system-ui,sans-serif`, rgb(PAL.text), sy(12, H));
+
+  /* subtitle */
+  ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+  ctx.fillStyle = rgb(PAL.muted);
+  ctx.font = `bold ${sx(40, W)}px system-ui,sans-serif`;
+  ctx.fillText(`${totalQ} Question${totalQ === 1 ? '' : 's'}`, W / 2, midY + sy(60, H));
+  ctx.font = `${sx(32, W)}px system-ui,sans-serif`;
+  ctx.fillText("Let's see how many you get right!", W / 2, midY + sy(130, H));
+
+  /* bottom accent bar */
+  ctx.fillStyle = rgb(PAL.accent);
+  ctx.fillRect(pad, H - pad - barH, cw, barH);
+
+  ctx.restore();
+}
+
+function drawQuestionSlide(ctx, q, qNum, total) {
+  const W = ctx.canvas.width, H = ctx.canvas.height;
+  const pad = sx(80, W), cw = W - 2 * pad, cx = W / 2;
+  drawBg(ctx);
+  ctx.save();
+
+  /* Q-counter pill */
+  const pillW = sx(260, W), pillH = sy(64, H), pillR = sx(32, W);
+  const pillX = (W - pillW) / 2, pillY = sy(120, H);
+  fillRR(ctx, pillX, pillY, pillW, pillH, pillR, rgb(PAL.accent));
+  ctx.fillStyle = rgb(PAL.text);
+  ctx.font = `bold ${sx(36, W)}px system-ui,sans-serif`;
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.fillText(`Q${qNum} of ${total}`, cx, pillY + pillH / 2);
+
+  /* question text */
+  const qTop = pillY + pillH + sy(60, H);
+  const qBot = drawWrapped(ctx, q.question, pad, qTop, cw,
+    `bold ${sx(58, W)}px system-ui,sans-serif`, rgb(PAL.text), sy(12, H));
+
+  /* divider */
+  const divY = qBot + sy(40, H);
+  hline(ctx, pad, W - pad, divY, rgb(PAL.accent), sx(3, W));
+
+  /* options */
+  const optTop = divY + sy(50, H);
+  const optH   = sy(110, H), optGap = sy(26, H);
+  const circR  = sx(34, W);
+  const LABELS = ['A','B','C','D'];
+
+  for (let i = 0; i < Math.min(q.options.length, 4); i++) {
+    const oy = optTop + i * (optH + optGap);
+    fillRR(ctx, pad, oy, cw, optH, sx(24, W), 'rgba(255,255,255,0.07)');
+
+    const cxC = pad + sx(20, W) + circR, cyC = oy + optH / 2;
+    fillCircle(ctx, cxC, cyC, circR, rgb(PAL.accent));
+
+    ctx.fillStyle = rgb(PAL.text);
+    ctx.font = `bold ${sx(44, W)}px system-ui,sans-serif`;
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText(LABELS[i], cxC, cyC);
+
+    ctx.font = `${sx(50, W)}px system-ui,sans-serif`;
+    ctx.textAlign = 'left';
+    ctx.fillText(q.options[i], cxC + circR + sx(24, W), cyC);
+  }
+
+  ctx.restore();
+}
+
+function drawThinkSlide(ctx, q, qNum, total) {
+  drawQuestionSlide(ctx, q, qNum, total);
+  const W = ctx.canvas.width, H = ctx.canvas.height;
+  ctx.save();
+
+  /* dark overlay */
+  ctx.fillStyle = 'rgba(0,0,0,0.55)';
+  ctx.fillRect(0, 0, W, H);
+
+  const cx = W / 2, midY = H / 2;
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+
+  ctx.font = `${sx(120, W)}px system-ui,sans-serif`;
+  ctx.fillText('🤔', cx, midY - sy(60, H));
+
+  ctx.font = `bold ${sx(100, W)}px system-ui,sans-serif`;
+  ctx.fillStyle = rgb(PAL.text);
+  ctx.fillText('Think…', cx, midY + sy(80, H));
+
+  ctx.font = `${sx(50, W)}px system-ui,sans-serif`;
+  ctx.fillStyle = rgb(PAL.muted);
+  ctx.fillText("What's your answer?", cx, midY + sy(180, H));
+
+  ctx.restore();
+}
+
+function drawAnswerSlide(ctx, q, qNum, total) {
+  const W = ctx.canvas.width, H = ctx.canvas.height;
+  const pad = sx(80, W), cw = W - 2 * pad, cx = W / 2;
+  drawBg(ctx);
+  ctx.save();
+
+  /* green banner */
+  const bannerH = sy(120, H);
+  ctx.fillStyle = rgb(PAL.correct);
+  ctx.fillRect(0, 0, W, bannerH);
+  ctx.fillStyle = 'rgb(255,255,255)';
+  ctx.font = `bold ${sx(40, W)}px system-ui,sans-serif`;
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.fillText('✓  CORRECT ANSWER', cx, bannerH / 2);
+
+  /* Q label */
+  ctx.fillStyle = rgb(PAL.muted);
+  ctx.font = `${sx(36, W)}px system-ui,sans-serif`;
+  ctx.textAlign = 'left'; ctx.textBaseline = 'top';
+  ctx.fillText(`Q${qNum}/${total}`, pad, bannerH + sy(40, H));
+
+  /* question text */
+  const qTop = bannerH + sy(100, H);
+  const qBot = drawWrapped(ctx, q.question, pad, qTop, cw,
+    `bold ${sx(50, W)}px system-ui,sans-serif`, rgb(PAL.text), sy(10, H));
+
+  /* options */
+  const optTop = qBot + sy(50, H);
+  const optH   = sy(100, H), optGap = sy(20, H);
+  const circR  = sx(30, W);
+  const LABELS = ['A','B','C','D'];
+
+  for (let i = 0; i < Math.min(q.options.length, 4); i++) {
+    const isCorrect = i === q.correct_option;
+    const oy = optTop + i * (optH + optGap);
+    fillRR(ctx, pad, oy, cw, optH, sx(24, W),
+      isCorrect ? rgba(PAL.correct, 0.85) : 'rgba(255,255,255,0.08)');
+
+    const cxC = pad + sx(18, W) + circR, cyC = oy + optH / 2;
+    fillCircle(ctx, cxC, cyC, circR,
+      isCorrect ? 'rgb(255,255,255)' : rgb(PAL.accent));
+
+    ctx.fillStyle = isCorrect ? rgb(PAL.correct) : rgb(PAL.text);
+    ctx.font = `bold ${sx(44, W)}px system-ui,sans-serif`;
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText(LABELS[i], cxC, cyC);
+
+    ctx.fillStyle = isCorrect ? 'rgb(255,255,255)' : rgb(PAL.muted);
+    ctx.font = `${sx(46, W)}px system-ui,sans-serif`;
+    ctx.textAlign = 'left';
+    ctx.fillText(q.options[i], cxC + circR + sx(20, W), cyC);
+
+    if (isCorrect) {
+      ctx.fillStyle = 'rgb(255,255,255)';
+      ctx.font = `bold ${sx(44, W)}px system-ui,sans-serif`;
+      ctx.textAlign = 'right';
+      ctx.fillText('✓', W - pad - sx(20, W), cyC);
+    }
+  }
+
+  /* explanation */
+  if (q.explanation) {
+    const explBaseY = optTop + 4 * (optH + optGap);
+    const explLineY = explBaseY + sy(40, H);
+    hline(ctx, pad, W - pad, explLineY, rgb(PAL.muted), sx(2, W));
+    drawWrapped(ctx, `💡 ${q.explanation}`, pad, explLineY + sy(30, H), cw,
+      `${sx(34, W)}px system-ui,sans-serif`, rgb(PAL.muted), sy(8, H));
+  }
+
+  ctx.restore();
+}
+
+function drawOutroSlide(ctx, title) {
+  const W = ctx.canvas.width, H = ctx.canvas.height;
+  drawBg(ctx);
+  ctx.save();
+
+  const cx = W / 2, midY = H / 2;
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+
+  ctx.font = `${sx(120, W)}px system-ui,sans-serif`;
+  ctx.fillText('🎉', cx, midY - sy(200, H));
+
+  ctx.font = `bold ${sx(72, W)}px system-ui,sans-serif`;
+  ctx.fillStyle = rgb(PAL.text);
+  ctx.fillText("That's a wrap!", cx, midY - sy(80, H));
+
+  ctx.font = `bold ${sx(48, W)}px system-ui,sans-serif`;
+  ctx.fillStyle = rgb(PAL.accent);
+  ctx.fillText(title, cx, midY + sy(40, H));
+
+  ctx.font = `${sx(40, W)}px system-ui,sans-serif`;
+  ctx.fillStyle = rgb(PAL.muted);
+  ctx.fillText('Like & Subscribe for more!', cx, midY + sy(160, H));
+
+  ctx.font = `${sx(60, W)}px system-ui,sans-serif`;
+  ctx.fillStyle = rgb(PAL.text);
+  ctx.fillText('👍  🔔  📲', cx, midY + sy(250, H));
+
+  ctx.restore();
+}
+
+/* ═══════════════════════════════════════════════════════════
+   SLIDE PIPELINE  →  [{bitmap, duration}, ...]
+   ═══════════════════════════════════════════════════════════ */
+
+async function buildSlides(quiz, cfg, onProgress) {
+  const { w, h } = RESOLUTIONS[cfg.quality] ?? RESOLUTIONS.hd;
+
+  /* Reuse one OffscreenCanvas (or fallback to <canvas>) for all slides */
+  let offscreen;
+  if (typeof OffscreenCanvas !== 'undefined') {
+    offscreen = new OffscreenCanvas(w, h);
+  } else {
+    offscreen = document.createElement('canvas');
+    offscreen.width = w; offscreen.height = h;
+  }
+  const ctx = offscreen.getContext('2d');
+
+  const slideData = [];
+  const totalSlides = 2 + quiz.questions.length * SLIDES_PER_QUESTION; // intro + (q+think+ans)*N + outro
+  let rendered = 0;
+
+  async function capture(drawFn, duration) {
+    drawFn(ctx);
+    const bitmap = await createImageBitmap(offscreen);
+    slideData.push({ bitmap, duration });
+    rendered++;
+    onProgress(rendered / totalSlides, `Rendering slide ${rendered} of ${totalSlides}…`);
+    await new Promise(r => setTimeout(r, 0)); // yield to keep UI alive
+  }
+
+  /* intro */
+  await capture(c => drawIntroSlide(c, quiz.title, quiz.questions.length), cfg.question_duration);
+
+  /* questions */
+  for (let i = 0; i < quiz.questions.length; i++) {
+    const q = quiz.questions[i], qNum = i + 1, total = quiz.questions.length;
+    await capture(c => drawQuestionSlide(c, q, qNum, total), cfg.question_duration);
+    await capture(c => drawThinkSlide(c, q, qNum, total),    cfg.think_duration);
+    await capture(c => drawAnswerSlide(c, q, qNum, total),   cfg.answer_duration);
+  }
+
+  /* outro */
+  await capture(c => drawOutroSlide(c, quiz.title), cfg.question_duration);
+
+  return slideData;
+}
+
+/* ═══════════════════════════════════════════════════════════
+   MP4 ENCODING  via VideoEncoder + mp4-muxer
+   Returns an ArrayBuffer of the finished MP4 file.
+   ═══════════════════════════════════════════════════════════ */
+
+async function encodeMP4(slideData, res, onProgress) {
+  const { w, h } = res;
+  const FPS = 30;
+  const frameDurationUs = Math.round(1_000_000 / FPS);
+
+  const totalFrames = slideData.reduce(
+    (s, d) => s + Math.round(d.duration * FPS), 0);
+  let encodedFrames = 0;
+
+  const target = new ArrayBufferTargetClass();
+  const muxer = new MuxerClass({
+    target,
+    video: { codec: 'avc', width: w, height: h, frameRate: FPS },
+    fastStart: 'in-memory',
+  });
+
+  let encodeError = null;
+  const encoder = new VideoEncoder({
+    output: (chunk, meta) => muxer.addVideoChunk(chunk, meta),
+    error: (e) => { encodeError = e; },
+  });
+
+  /* Try H.264 High Profile first, then Main, then Baseline */
+  const codecCandidates = [
+    `avc1.640028`, // High L4.0 — 1080p
+    `avc1.4d0028`, // Main L4.0
+    `avc1.42001f`, // Baseline L3.1 (≤1280×720 officially, but most browsers accept 1080p)
+  ];
+  let configured = false;
+  for (const codec of codecCandidates) {
+    const cfg = { codec, width: w, height: h, bitrate: w === 1080 ? 2_500_000 : 800_000, framerate: FPS };
+    const support = await VideoEncoder.isConfigSupported(cfg);
+    if (support.supported) {
+      encoder.configure(cfg);
+      configured = true;
+      break;
+    }
+  }
+  if (!configured) throw new Error('No supported H.264 codec profile found.');
+
+  let currentTs = 0;
+
+  for (const { bitmap, duration } of slideData) {
+    const nFrames = Math.round(duration * FPS);
+    for (let f = 0; f < nFrames; f++) {
+      if (encodeError) throw encodeError;
+
+      const frame = new VideoFrame(bitmap, {
+        timestamp: currentTs,
+        duration: frameDurationUs,
+      });
+      encoder.encode(frame, { keyFrame: f === 0 });
+      frame.close();
+      currentTs += frameDurationUs;
+      encodedFrames++;
+
+      /* Yield every 30 frames to keep the browser responsive */
+      if (encodedFrames % 30 === 0) {
+        onProgress(encodedFrames / totalFrames, `Encoding… ${Math.round(encodedFrames / totalFrames * 100)}%`);
+        await new Promise(r => setTimeout(r, 0));
+      }
+    }
+  }
+
+  await encoder.flush();
+  if (encodeError) throw encodeError;
+
+  muxer.finalize();
+
+  /* free bitmaps */
+  for (const { bitmap } of slideData) bitmap.close();
+
+  return target.buffer;
+}
+
+/* ═══════════════════════════════════════════════════════════
+   MEDIARECORDER FALLBACK  →  Blob (WebM or MP4 depending on browser)
+   ═══════════════════════════════════════════════════════════ */
+
+async function encodeMediaRecorder(slideData, res, onProgress) {
+  const { w, h } = res;
+  const FPS = 30;
+
+  /* pick best supported MIME type */
+  const mimeTypes = [
+    'video/mp4;codecs=h264',
+    'video/mp4',
+    'video/webm;codecs=vp9',
+    'video/webm',
+  ];
+  const mimeType = mimeTypes.find(m => MediaRecorder.isTypeSupported(m)) || '';
+
+  const canvas = document.createElement('canvas');
+  canvas.width = w; canvas.height = h;
+  const ctx = canvas.getContext('2d');
+
+  /* captureStream(0) = no automatic frames; we call requestFrame() manually */
+  const stream = canvas.captureStream(0);
+  const track  = stream.getVideoTracks()[0];
+
+  const recorder = new MediaRecorder(stream, mimeType ? { mimeType } : {});
+  const chunks = [];
+  recorder.ondataavailable = e => { if (e.data.size) chunks.push(e.data); };
+
+  return new Promise((resolve, reject) => {
+    recorder.onerror = (e) => reject(e.error ?? new Error('MediaRecorder error'));
+
+    recorder.onstop = () => {
+      for (const { bitmap } of slideData) bitmap.close();
+      resolve(new Blob(chunks, { type: recorder.mimeType || mimeType || 'video/webm' }));
+    };
+
+    recorder.start();
+
+    let slideIdx = 0, frame = 0;
+    const totalFrames = slideData.reduce((s, d) => s + Math.round(d.duration * FPS), 0);
+    let totalDone = 0;
+    const frameDurationMs = 1000 / FPS;
+
+    const drawNextFrame = () => {
+      if (slideIdx >= slideData.length) {
+        recorder.stop();
+        return;
+      }
+      const { bitmap, duration } = slideData[slideIdx];
+      const nFrames = Math.round(duration * FPS);
+
+      ctx.drawImage(bitmap, 0, 0);
+      track.requestFrame();
+
+      frame++;
+      totalDone++;
+      onProgress(totalDone / totalFrames, `Encoding… ${Math.round(totalDone / totalFrames * 100)}%`);
+
+      if (frame >= nFrames) {
+        slideIdx++;
+        frame = 0;
+      }
+
+      if (slideIdx < slideData.length) {
+        setTimeout(drawNextFrame, frameDurationMs);
+      } else {
+        setTimeout(() => recorder.stop(), frameDurationMs * 2);
+      }
+    };
+
+    drawNextFrame();
+  });
+}
+
+/* ═══════════════════════════════════════════════════════════
+   PAYLOAD BUILDER  (same logic as templates/index.html)
+   ═══════════════════════════════════════════════════════════ */
+
+function buildPayload() {
+  const isForm = document.getElementById('tab-form').classList.contains('active');
+
+  let quiz;
+  if (!isForm) {
+    const raw = document.getElementById('json-input').value.trim();
+    if (!raw) throw new Error('Please enter or upload a JSON quiz.');
+    quiz = JSON.parse(raw);
+  } else {
+    const blocks = document.querySelectorAll('.question-block');
+    if (!blocks.length) throw new Error('Add at least one question.');
+
+    const questions = [];
+    for (const block of blocks) {
+      const n = block.id.replace('q-block-', '');
+      const qText = document.getElementById(`q-text-${n}`).value.trim();
+      if (!qText) throw new Error(`Question ${n} text is empty.`);
+
+      const options = [0,1,2,3].map(i => {
+        const v = document.getElementById(`q-opt-${n}-${i}`).value.trim();
+        if (!v) throw new Error(`Question ${n}: Option ${['A','B','C','D'][i]} is empty.`);
+        return v;
+      });
+
+      const radio  = document.querySelector(`input[name="correct-${n}"]:checked`);
+      const expl   = document.getElementById(`q-expl-${n}`).value.trim() || null;
+      questions.push({ question: qText, options, correct_option: radio ? +radio.value : 0, explanation: expl });
+    }
+
+    const title    = document.getElementById('quiz-title').value.trim() || 'MCQ Quiz';
+    const hashRaw  = document.getElementById('quiz-hashtags').value;
+    const hashtags = hashRaw.split(',').map(t => t.trim()).filter(Boolean);
+    quiz = { title, questions, hashtags };
+  }
+
+  /* normalise: accept flat quiz object or {quiz: ...} wrapper */
+  if (quiz.quiz) quiz = quiz.quiz;
+
+  /* basic client-side validation */
+  if (!quiz.title) quiz.title = 'MCQ Quiz';
+  if (!Array.isArray(quiz.questions) || quiz.questions.length < 1)
+    throw new Error('Quiz must have at least one question.');
+  if (quiz.questions.length > MAX_QUESTIONS)
+    throw new Error(`Quiz can have at most ${MAX_QUESTIONS} questions.`);
+  for (const [i, q] of quiz.questions.entries()) {
+    if (!q.question?.trim()) throw new Error(`Question ${i+1} text is empty.`);
+    if (!Array.isArray(q.options) || q.options.length !== 4)
+      throw new Error(`Question ${i+1} must have exactly 4 options.`);
+    if (typeof q.correct_option !== 'number' || q.correct_option < 0 || q.correct_option > 3)
+      throw new Error(`Question ${i+1}: correct_option must be 0–3.`);
+  }
+
+  const cfg = {
+    question_duration: Math.max(1, parseFloat(document.getElementById('cfg-q-dur').value) || 4.0),
+    think_duration:    Math.max(1, parseFloat(document.getElementById('cfg-t-dur').value) || 3.0),
+    answer_duration:   Math.max(1, parseFloat(document.getElementById('cfg-a-dur').value) || 3.5),
+    quality:           document.getElementById('cfg-quality').value || 'hd',
+  };
+
+  return { quiz, cfg };
+}
+
+/* ═══════════════════════════════════════════════════════════
+   MAIN GENERATION FLOW
+   ═══════════════════════════════════════════════════════════ */
+
+let _currentBlobUrl = null;
+
+window.startGeneration = async function () {
+  let payload;
+  try { payload = buildPayload(); }
+  catch (err) { alert(err.message); return; }
+
+  /* revoke previous blob */
+  if (_currentBlobUrl) { URL.revokeObjectURL(_currentBlobUrl); _currentBlobUrl = null; }
+
+  setUIGenerating(true);
+  showSection('status');
+  setProgress(0, 'Starting…');
+  const t0 = Date.now();
+
+  try {
+    const res = RESOLUTIONS[payload.cfg.quality] ?? RESOLUTIONS.hd;
+
+    /* Phase 1: render slides (0 → 40%) */
+    const slideData = await buildSlides(
+      payload.quiz, payload.cfg,
+      (p, msg) => setProgress(p * 0.4, msg)
+    );
+
+    /* Phase 2: encode video (40 → 100%) */
+    let blobOrBuffer, mimeType, ext;
+
+    const useWebCodecs = typeof VideoEncoder !== 'undefined' && MuxerClass !== null;
+
+    if (useWebCodecs) {
+      const buf = await encodeMP4(slideData, res,
+        (p, msg) => setProgress(0.4 + p * 0.6, msg));
+      blobOrBuffer = new Blob([buf], { type: 'video/mp4' });
+      mimeType = 'video/mp4';
+      ext = 'mp4';
+    } else {
+      /* MediaRecorder fallback — note: slides already built, pass them */
+      const blob = await encodeMediaRecorder(slideData, res,
+        (p, msg) => setProgress(0.4 + p * 0.6, msg));
+      blobOrBuffer = blob;
+      mimeType = blob.type;
+      ext = mimeType.includes('mp4') ? 'mp4' : 'webm';
+    }
+
+    _currentBlobUrl = URL.createObjectURL(blobOrBuffer);
+    const elapsed = ((Date.now() - t0) / 1000).toFixed(1);
+    showVideo(_currentBlobUrl, `quiz_video.${ext}`, elapsed);
+
+  } catch (err) {
+    console.error(err);
+    showError(`Generation failed: ${err.message || err}`);
+  }
+};
+
+/* ═══════════════════════════════════════════════════════════
+   UI HELPERS
+   ═══════════════════════════════════════════════════════════ */
+
+function setUIGenerating(on) {
+  document.getElementById('gen-btn').disabled = on;
+}
+
+function showSection(name) {
+  document.getElementById('status-section').style.display = name === 'status' ? 'block' : 'none';
+  document.getElementById('video-section').style.display  = name === 'video'  ? 'block' : 'none';
+  if (name === 'status') {
+    document.getElementById('spinner').style.display = 'block';
+    document.getElementById('progress-wrap').style.display = 'none';
+    document.getElementById('progress-label').textContent = '';
+    document.getElementById('status-text').className = 'status-text';
+  }
+}
+
+function setProgress(fraction, label) {
+  document.getElementById('progress-wrap').style.display = 'block';
+  document.getElementById('progress-fill').style.width = `${Math.round(fraction * 100)}%`;
+  document.getElementById('status-text').textContent = label ?? '';
+  document.getElementById('progress-label').textContent =
+    fraction > 0 ? `${Math.round(fraction * 100)}%` : '';
+}
+
+function showVideo(blobUrl, filename, elapsed) {
+  document.getElementById('spinner').style.display = 'none';
+  document.getElementById('status-text').textContent = `✅ Done in ${elapsed}s`;
+  setProgress(1, `✅ Done in ${elapsed}s`);
+
+  const player = document.getElementById('video-player');
+  player.src = blobUrl;
+  player.load();
+
+  const dl = document.getElementById('download-btn');
+  dl.href = blobUrl;
+  dl.download = filename;
+
+  showSection('video');
+  document.getElementById('status-section').style.display = 'block'; /* keep status visible */
+  document.getElementById('video-section').style.display  = 'block';
+  document.getElementById('video-section').scrollIntoView({ behavior: 'smooth' });
+  setUIGenerating(false);
+}
+
+function showError(msg) {
+  document.getElementById('spinner').style.display = 'none';
+  const el = document.getElementById('status-text');
+  el.textContent = msg;
+  el.className = 'status-text status-error';
+  setUIGenerating(false);
+}
+
+window.resetUI = function () {
+  document.getElementById('status-section').style.display = 'none';
+  document.getElementById('video-section').style.display  = 'none';
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+};
+
+/* ═══════════════════════════════════════════════════════════
+   QUESTION BUILDER UI
+   ═══════════════════════════════════════════════════════════ */
+
+let _qCount = 0;
+
+window.addQuestion = function () {
+  _qCount++;
+  const n = _qCount;
+  const container = document.getElementById('questions-container');
+  const div = document.createElement('div');
+  div.className = 'question-block';
+  div.id = `q-block-${n}`;
+  div.innerHTML = `
+    <h3>Question ${n}</h3>
+    <button class="remove-q" title="Remove" onclick="removeQuestion(${n})">✕</button>
+
+    <label>Question text</label>
+    <input type="text" id="q-text-${n}" placeholder="Enter your question…" />
+
+    <label>Options</label>
+    <div class="options-grid">
+      ${['A','B','C','D'].map((l,i) => `
+        <div class="option-row">
+          <span class="opt-label">${l}</span>
+          <input type="text" id="q-opt-${n}-${i}" placeholder="Option ${l}" class="mb-0" />
+        </div>`).join('')}
+    </div>
+
+    <div class="correct-row">
+      <label>Correct answer:</label>
+      ${['A','B','C','D'].map((l,i) => `
+        <label style="display:inline-flex;align-items:center;gap:.25rem;margin-right:.6rem;cursor:pointer">
+          <input type="radio" name="correct-${n}" value="${i}" ${i===0?'checked':''} /> ${l}
+        </label>`).join('')}
+    </div>
+
+    <label>Explanation <span class="text-muted">(optional)</span></label>
+    <input type="text" id="q-expl-${n}" placeholder="Brief explanation shown after the answer…" />
+  `;
+  container.appendChild(div);
+};
+
+window.removeQuestion = function (n) {
+  document.getElementById(`q-block-${n}`)?.remove();
+};
+
+window.switchTab = function (name) {
+  document.querySelectorAll('.tab-btn').forEach(b =>
+    b.classList.toggle('active', b.dataset.tab === name));
+  document.getElementById('tab-form').classList.toggle('active', name === 'form');
+  document.getElementById('tab-json').classList.toggle('active', name === 'json');
+};
+
+window.handleJsonFile = function (e) {
+  const file = e.target.files[0]; if (!file) return;
+  const reader = new FileReader();
+  reader.onload = ev => { document.getElementById('json-input').value = ev.target.result; };
+  reader.readAsText(file);
+};
+
+/* seed one question on load */
+addQuestion();
+
+</script>
+</body>
+</html>
