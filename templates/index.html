@@ -298,7 +298,7 @@
 <script>
   /* ─── State ─── */
   let questionCount = 0;
-  let pollTimer = null;
+  let _currentBlobUrl = null;   // blob URL of the last generated video
 
   /* ─── Tab switching ─── */
   function switchTab(name) {
@@ -424,78 +424,58 @@
       return;
     }
 
-    // Show status section, hide video
+    // Revoke any previous blob URL to free memory
+    if (_currentBlobUrl) {
+      URL.revokeObjectURL(_currentBlobUrl);
+      _currentBlobUrl = null;
+    }
+
     document.getElementById('gen-btn').disabled = true;
     document.getElementById('status-section').style.display = 'block';
     document.getElementById('video-section').style.display = 'none';
     document.getElementById('spinner').style.display = 'block';
-    setStatus('Submitting job…');
+    setStatus('Generating your video… this can take 1–3 minutes ⏳');
 
-    // Clear any previous polling interval
-    if (pollTimer !== null) {
-      clearInterval(pollTimer);
-      pollTimer = null;
-    }
-
-    let jobId;
     try {
       const resp = await fetch('/generate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
       });
-      const data = await resp.json();
-      if (!resp.ok) throw new Error(data.error || 'Server error');
-      jobId = data.job_id;
-    } catch (err) {
-      showError('Failed to start: ' + err.message);
-      return;
-    }
 
-    setStatus('Generating video… this may take a minute ⏳');
-    pollTimer = setInterval(() => pollStatus(jobId), 3000);
-  }
-
-  let _pollFailures = 0;
-
-  async function pollStatus(jobId) {
-    try {
-      const resp = await fetch(`/status/${jobId}`);
-      const data = await resp.json();
-      _pollFailures = 0;
-      if (data.status === 'done') {
-        clearInterval(pollTimer);
-        pollTimer = null;
-        showVideo(jobId);
-      } else if (data.status === 'error') {
-        clearInterval(pollTimer);
-        pollTimer = null;
-        showError('Generation failed: ' + (data.error || 'unknown error'));
+      if (!resp.ok) {
+        // Try to extract a JSON error message
+        let msg = `Server error (HTTP ${resp.status})`;
+        try {
+          const err = await resp.json();
+          msg = (Array.isArray(err.error) ? JSON.stringify(err.error) : err.error) || msg;
+        } catch (_) {}
+        throw new Error(msg);
       }
-      // else: still running — keep polling
+
+      // The response IS the video file — create a local blob URL
+      const blob = await resp.blob();
+      _currentBlobUrl = URL.createObjectURL(blob);
+      showVideo(_currentBlobUrl);
+
     } catch (err) {
-      _pollFailures++;
-      console.error('Poll error:', err);
-      if (_pollFailures >= 5) {
-        clearInterval(pollTimer);
-        pollTimer = null;
-        showError('Lost connection to server. Please refresh and try again.');
-      }
+      showError('Generation failed: ' + err.message);
     }
   }
 
-  function showVideo(jobId) {
+  function showVideo(blobUrl) {
     document.getElementById('spinner').style.display = 'none';
     setStatus('✅ Video ready!');
 
-    const videoUrl = `/video/${jobId}`;
-    const downloadUrl = `/download/${jobId}`;
-
     const player = document.getElementById('video-player');
-    player.src = videoUrl;
+    player.src = blobUrl;
     player.load();
 
-    document.getElementById('download-btn').href = downloadUrl;
+    // Wire download button to the local blob
+    const dl = document.getElementById('download-btn');
+    dl.href = blobUrl;
+    dl.download = 'quiz_video.mp4';
+
     document.getElementById('video-section').style.display = 'block';
     document.getElementById('video-section').scrollIntoView({ behavior: 'smooth' });
     document.getElementById('gen-btn').disabled = false;

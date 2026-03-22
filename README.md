@@ -53,7 +53,38 @@ python app.py          # already binds to 0.0.0.0 by default
 # then open http://<your-machine-ip>:5000 on any device
 \`\`\`
 
-### 3. Generate a demo video (CLI)
+### 3. Deploy to Vercel (use from any device, anywhere)
+
+> **Plan requirements:**
+> - **Hobby** (free) — 10 s timeout, **too short** for video generation.
+> - **Pro** — 60 s timeout; suitable for short quizzes (1–3 questions, no audio).
+> - **Enterprise** — 300 s timeout (`maxDuration: 300` in `vercel.json`); needed for longer quizzes or when audio is enabled.
+
+\`\`\`bash
+# Install the Vercel CLI once
+npm install -g vercel
+
+# Deploy (follow the interactive prompts)
+vercel
+
+# Re-deploy after changes
+vercel --prod
+\`\`\`
+
+Vercel will give you a public HTTPS URL (e.g. `https://your-project.vercel.app`).
+Open it on **any device** — phone, tablet, laptop — paste your quiz JSON, hit **Generate**, and download the MP4.
+
+#### Alternative platforms (no timeout limitations)
+
+For longer quizzes or audio-enabled generation, these platforms run the app as a persistent process with no timeout:
+
+| Platform | Free tier | Start command |
+|---|---|---|
+| [Railway](https://railway.app) | ✅ 500 h/month | `python app.py` |
+| [Render](https://render.com) | ✅ 750 h/month | `python app.py` |
+| [Fly.io](https://fly.io) | ✅ 3 shared VMs | `python app.py` |
+
+### 4. Generate a demo video (CLI)
 
 \`\`\`bash
 python main.py --demo --no-audio --output output/demo.mp4
@@ -152,6 +183,8 @@ shorts-video-engine/
 │   └── sample_questions.json
 ├── app.py                 # Flask web server entry point
 ├── main.py                # CLI entry point
+├── vercel.json            # Vercel deployment configuration
+├── .vercelignore          # Files excluded from Vercel bundle
 └── requirements.txt
 \`\`\`
 

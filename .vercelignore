@@ -1,0 +1,28 @@
+# Git metadata
+.git
+.gitignore
+
+# Python caches
+__pycache__
+*.pyc
+*.pyo
+*.pyd
+.Python
+
+# Test infrastructure
+tests/
+.pytest_cache
+pytest.ini
+setup.cfg
+
+# Local output
+output/
+
+# Development / editor files
+.env
+.env.*
+*.egg-info
+dist/
+build/
+.venv/
+venv/

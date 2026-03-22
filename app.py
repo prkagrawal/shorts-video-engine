@@ -1,36 +1,44 @@
 #!/usr/bin/env python3
 """
-Shorts Video Engine — Web Interface.
+Shorts Video Engine — Web Interface (Vercel-compatible).
 
-Start the server:
+Start locally:
     python app.py
 
-Then open http://localhost:5000 in any browser (desktop or mobile).
+Deploy to Vercel:
+    vercel deploy
+    # Requires Vercel Pro (60 s) or Enterprise (300 s) for sufficient timeout.
+    # Hobby (10 s) is too short for video generation.
 """
 
 from __future__ import annotations
 
-import json
 import logging
 import os
-import threading
 import uuid
 from pathlib import Path
-from typing import Optional, TypedDict
 
-from flask import (
-    Flask,
-    Response,
-    jsonify,
-    render_template,
-    request,
-    send_file,
-)
+from flask import Flask, Response, after_this_request, jsonify, render_template, request, send_file
 from pydantic import ValidationError
 
 from src.config import VideoConfig
-from src.models import MCQQuestion, Quiz
+from src.models import Quiz
 from src.video_engine import generate_video
+
+# ---------------------------------------------------------------------------
+# Ensure FFmpeg is on PATH (imageio-ffmpeg bundles a static binary so the app
+# works on platforms that don't ship FFmpeg, e.g. Vercel's Lambda runtime).
+# ---------------------------------------------------------------------------
+try:
+    import imageio_ffmpeg  # type: ignore[import-untyped]
+    _ffmpeg_exe = imageio_ffmpeg.get_ffmpeg_exe()
+    _ffmpeg_dir = str(Path(_ffmpeg_exe).parent)
+    os.environ["PATH"] = _ffmpeg_dir + os.pathsep + os.environ.get("PATH", "")
+except Exception:  # noqa: BLE001
+    logger.warning(
+        "imageio-ffmpeg not available; falling back to system FFmpeg. "
+        "Install imageio-ffmpeg for guaranteed FFmpeg availability on serverless platforms."
+    )
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -41,45 +49,10 @@ logger = logging.getLogger(__name__)
 
 app = Flask(__name__)
 
-# Directory where generated videos are stored temporarily
-OUTPUT_DIR = Path("output") / "web"
-OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+# /tmp is writable on every platform (local, Docker, Vercel, Railway, Render…).
+# On Vercel, the normal filesystem is read-only except for /tmp.
+_TMP_DIR = Path(os.environ.get("TMPDIR", "/tmp")) / "svengine"
 
-
-class JobRecord(TypedDict):
-    status: str          # "queued" | "running" | "done" | "error"
-    output: Optional[str]
-    error: Optional[str]
-
-
-# In-memory job registry  {job_id: JobRecord}
-_jobs: dict[str, JobRecord] = {}
-_jobs_lock = threading.Lock()
-
-
-# ---------------------------------------------------------------------------
-# Background worker
-# ---------------------------------------------------------------------------
-
-def _run_job(job_id: str, quiz: Quiz, cfg: VideoConfig) -> None:
-    output_path = str(OUTPUT_DIR / f"{job_id}.mp4")
-    try:
-        with _jobs_lock:
-            _jobs[job_id]["status"] = "running"
-        generate_video(quiz, output_path, cfg)
-        with _jobs_lock:
-            _jobs[job_id]["status"] = "done"
-            _jobs[job_id]["output"] = output_path
-    except Exception as exc:  # noqa: BLE001
-        logger.exception("Job %s failed", job_id)
-        with _jobs_lock:
-            _jobs[job_id]["status"] = "error"
-            _jobs[job_id]["error"] = str(exc)
-
-
-# ---------------------------------------------------------------------------
-# Routes
-# ---------------------------------------------------------------------------
 
 @app.route("/")
 def index() -> str:
@@ -88,7 +61,7 @@ def index() -> str:
 
 @app.route("/generate", methods=["POST"])
 def generate() -> Response:
-    """Accept a quiz payload (JSON body) and start video generation."""
+    """Validate the quiz, generate the video synchronously, and return it."""
     data = request.get_json(silent=True)
     if not data:
         return jsonify({"error": "JSON body required"}), 400
@@ -98,7 +71,6 @@ def generate() -> Response:
     except ValidationError as exc:
         return jsonify({"error": exc.errors()}), 422
 
-    # Video config overrides (all optional)
     cfg_overrides = data.get("config", {})
     cfg = VideoConfig(
         audio_enabled=cfg_overrides.get("audio_enabled", False),
@@ -107,48 +79,34 @@ def generate() -> Response:
         answer_duration=float(cfg_overrides.get("answer_duration", 3.5)),
     )
 
-    job_id = uuid.uuid4().hex
-    with _jobs_lock:
-        _jobs[job_id] = {"status": "queued", "output": None, "error": None}
+    _TMP_DIR.mkdir(parents=True, exist_ok=True)
+    output_path = str(_TMP_DIR / f"{uuid.uuid4().hex}.mp4")
 
-    thread = threading.Thread(target=_run_job, args=(job_id, quiz, cfg), daemon=True)
-    thread.start()
+    try:
+        generate_video(quiz, output_path, cfg)
+    except Exception as exc:
+        logger.exception("Video generation failed for quiz %r", quiz.title)
+        try:
+            os.unlink(output_path)
+        except OSError:
+            pass
+        return jsonify({"error": str(exc)}), 500
 
-    return jsonify({"job_id": job_id}), 202
+    # Schedule temp-file cleanup after the response is fully sent.
+    @after_this_request
+    def _cleanup(response: Response) -> Response:
+        try:
+            os.unlink(output_path)
+        except OSError:
+            pass
+        return response
 
-
-@app.route("/status/<job_id>")
-def status(job_id: str) -> Response:
-    """Return the current status of a generation job."""
-    with _jobs_lock:
-        job = _jobs.get(job_id)
-    if job is None:
-        return jsonify({"error": "Job not found"}), 404
-    return jsonify({"status": job["status"], "error": job.get("error")})
-
-
-@app.route("/video/<job_id>")
-def video(job_id: str) -> Response:
-    """Stream the generated video (for in-browser playback)."""
-    with _jobs_lock:
-        job = _jobs.get(job_id)
-    if job is None or job["status"] != "done":
-        return jsonify({"error": "Video not ready"}), 404
-    return send_file(job["output"], mimetype="video/mp4", conditional=True)
-
-
-@app.route("/download/<job_id>")
-def download(job_id: str) -> Response:
-    """Serve the generated video as a download attachment."""
-    with _jobs_lock:
-        job = _jobs.get(job_id)
-    if job is None or job["status"] != "done":
-        return jsonify({"error": "Video not ready"}), 404
     return send_file(
-        job["output"],
+        output_path,
         mimetype="video/mp4",
-        as_attachment=True,
+        as_attachment=False,
         download_name="quiz_video.mp4",
+        conditional=False,
     )
 
 
