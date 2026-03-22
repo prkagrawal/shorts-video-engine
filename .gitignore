@@ -26,4 +26,5 @@ env/
 
 # Next.js
 .next/
+out/
 node_modules/
