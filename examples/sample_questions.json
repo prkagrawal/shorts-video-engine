@@ -1,0 +1,36 @@
+{
+  "title": "Science & Geography Quiz",
+  "questions": [
+    {
+      "question": "What is the chemical symbol for water?",
+      "options": ["HO", "H2O", "O2H", "H2O2"],
+      "correct_option": 1,
+      "explanation": "Water is made of two hydrogen atoms and one oxygen atom: H₂O."
+    },
+    {
+      "question": "Which planet is known as the Red Planet?",
+      "options": ["Venus", "Jupiter", "Saturn", "Mars"],
+      "correct_option": 3,
+      "explanation": "Mars appears red due to iron oxide (rust) on its surface."
+    },
+    {
+      "question": "What is the capital of Japan?",
+      "options": ["Osaka", "Tokyo", "Kyoto", "Hiroshima"],
+      "correct_option": 1,
+      "explanation": "Tokyo became Japan's capital in 1869 and is the world's most populous city."
+    },
+    {
+      "question": "How many sides does a hexagon have?",
+      "options": ["5", "7", "6", "8"],
+      "correct_option": 2,
+      "explanation": "The prefix 'hexa-' comes from Greek meaning six."
+    },
+    {
+      "question": "Which gas do plants absorb during photosynthesis?",
+      "options": ["Oxygen", "Nitrogen", "Carbon Dioxide", "Hydrogen"],
+      "correct_option": 2,
+      "explanation": "Plants absorb CO₂ and release oxygen during photosynthesis."
+    }
+  ],
+  "hashtags": ["#shorts", "#quiz", "#science", "#geography", "#trivia", "#mcq"]
+}
