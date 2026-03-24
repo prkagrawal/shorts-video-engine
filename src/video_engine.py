@@ -17,6 +17,7 @@ from .audio_generator import (
 from .config import VideoConfig, DEFAULT_CONFIG
 from .models import MCQQuestion, Quiz
 from .slide_generator import (
+    make_answer_key_slide,
     make_answer_slide,
     make_intro_slide,
     make_outro_slide,
@@ -120,6 +121,16 @@ def generate_video(
     for idx, question in enumerate(quiz.questions, start=1):
         q_clips = _build_question_clips(question, idx, len(quiz.questions), cfg)
         clips.extend(q_clips)
+
+    # Answer key
+    row_h = 140
+    start_y = 120 + 40  # banner_h + margin
+    max_per_page = max(1, (cfg.height - start_y - 100) // row_h)
+    total_pages = -(-len(quiz.questions) // max_per_page)  # ceil division
+    for p in range(total_pages):
+        ak_img = make_answer_key_slide(quiz.questions, p, total_pages, cfg)
+        ak_clip = _pil_to_clip(ak_img, cfg.answer_duration, cfg.fps)
+        clips.append(ak_clip)
 
     # Outro
     outro_img = make_outro_slide(quiz.title, cfg)

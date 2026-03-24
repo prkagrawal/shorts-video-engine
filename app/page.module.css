@@ -238,3 +238,42 @@
   word-break: break-word;
   text-align: center;
 }
+
+.modeToggle {
+  display: flex;
+  gap: 0;
+  border-radius: 12px;
+  overflow: hidden;
+  border: 1px solid rgba(108, 92, 231, 0.4);
+}
+
+.modeBtn {
+  flex: 1;
+  padding: 12px;
+  background: transparent;
+  border: none;
+  color: #b2bec3;
+  font-size: 0.95rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+
+.modeBtn:hover {
+  background: rgba(108, 92, 231, 0.15);
+}
+
+.modeBtnActive {
+  background: rgba(108, 92, 231, 0.35);
+  color: #fff;
+}
+
+.jsonTextarea {
+  composes: input;
+  resize: vertical;
+  min-height: 280px;
+  font-family: 'Menlo', 'Consolas', 'Courier New', monospace;
+  font-size: 0.88rem;
+  line-height: 1.5;
+  white-space: pre;
+}
