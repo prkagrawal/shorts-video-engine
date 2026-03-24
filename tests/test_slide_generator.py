@@ -6,6 +6,7 @@ from PIL import Image
 from src.config import VideoConfig
 from src.models import MCQQuestion, Quiz
 from src.slide_generator import (
+    make_answer_key_slide,
     make_answer_slide,
     make_intro_slide,
     make_outro_slide,
@@ -82,13 +83,12 @@ class TestMakeThinkSlide:
         img = make_think_slide(q, 1, 3, SMALL_CFG)
         assert img.mode == "RGB"
 
-    def test_different_from_question_slide(self):
+    def test_identical_to_question_slide(self):
         q = sample_question()
         q_img = make_question_slide(q, 1, 3, SMALL_CFG)
         t_img = make_think_slide(q, 1, 3, SMALL_CFG)
-        # Think slide has an overlay, so pixels will differ
-        import numpy as np
-        assert not (np.array(q_img) == np.array(t_img)).all()
+        # Think slide now shows the question without overlay
+        assert list(q_img.getdata()) == list(t_img.getdata())
 
 
 class TestMakeAnswerSlide:
@@ -127,6 +127,35 @@ class TestMakeOutroSlide:
     def test_correct_size(self):
         img = make_outro_slide("My Quiz", SMALL_CFG)
         assert img.size == (540, 960)
+
+
+class TestMakeAnswerKeySlide:
+    def test_returns_pil_image(self):
+        qs = [sample_question()]
+        img = make_answer_key_slide(qs, 0, 1, SMALL_CFG)
+        assert isinstance(img, Image.Image)
+
+    def test_correct_size(self):
+        qs = [sample_question()]
+        img = make_answer_key_slide(qs, 0, 1, SMALL_CFG)
+        assert img.size == (540, 960)
+
+    def test_is_rgb(self):
+        qs = [sample_question()]
+        img = make_answer_key_slide(qs, 0, 1, SMALL_CFG)
+        assert img.mode == "RGB"
+
+    def test_multiple_questions(self):
+        qs = [sample_question(question=f"Q{i}?", correct_option=i % 4) for i in range(5)]
+        img = make_answer_key_slide(qs, 0, 1, SMALL_CFG)
+        assert isinstance(img, Image.Image)
+
+    def test_pagination(self):
+        qs = [sample_question(question=f"Q{i}?") for i in range(5)]
+        img_p0 = make_answer_key_slide(qs, 0, 2, SMALL_CFG)
+        img_p1 = make_answer_key_slide(qs, 1, 2, SMALL_CFG)
+        assert isinstance(img_p0, Image.Image)
+        assert isinstance(img_p1, Image.Image)
 
 
 class TestSlidesForQuestion:

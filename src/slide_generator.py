@@ -10,6 +10,12 @@ from PIL import Image, ImageDraw, ImageFont
 from .config import VideoConfig, DEFAULT_CONFIG, COLOUR
 from .models import MCQQuestion, OPTION_LABELS
 
+# Answer-key layout constants (shared with video_engine for page calculation)
+_AK_BANNER_H = 120
+_AK_ROW_H = 140
+_AK_TOP_MARGIN = 40
+_AK_BOTTOM_PAD = 100
+
 
 # ---------------------------------------------------------------------------
 # Internal helpers
@@ -100,7 +106,6 @@ def make_intro_slide(quiz_title: str, total_questions: int, cfg: VideoConfig = D
 
     # Sub-title
     draw.text((cx, mid_y + 60), f"{total_questions} Questions", font=font_sub, fill=cfg.muted_color, anchor="mt")
-    draw.text((cx, mid_y + 130), "Let's see how many you get right!", font=font_tiny, fill=cfg.muted_color, anchor="mt")
 
     # Bottom bar
     draw.rectangle([cfg.padding, cfg.height - cfg.padding - bar_h, cfg.width - cfg.padding, cfg.height - cfg.padding], fill=cfg.accent_color)
@@ -183,24 +188,8 @@ def make_think_slide(
     total: int,
     cfg: VideoConfig = DEFAULT_CONFIG,
 ) -> Image.Image:
-    """'Think…' interim slide — just redraws the question dimmed with a banner."""
-    img = make_question_slide(question, q_number, total, cfg)
-    overlay = Image.new("RGBA", cfg.size, (0, 0, 0, 140))
-    img = img.convert("RGBA")
-    img = Image.alpha_composite(img, overlay).convert("RGB")
-
-    draw = ImageDraw.Draw(img)
-    font_big = _load_font(cfg.font_bold, cfg.font_size_title)
-    font_small = _load_font(cfg.font_regular, cfg.font_size_small)
-
-    cx = cfg.width // 2
-    mid_y = cfg.height // 2
-
-    draw.text((cx, mid_y - 60), "🤔", font=font_big, fill=cfg.text_color, anchor="mm")
-    draw.text((cx, mid_y + 80), "Think…", font=font_big, fill=cfg.text_color, anchor="mm")
-    draw.text((cx, mid_y + 180), "What's your answer?", font=font_small, fill=cfg.muted_color, anchor="mm")
-
-    return img
+    """Reading-time slide — shows the question and options without overlay."""
+    return make_question_slide(question, q_number, total, cfg)
 
 
 def make_answer_slide(
@@ -283,6 +272,78 @@ def make_answer_slide(
             font_expl,
             cfg.muted_color,
             content_width,
+        )
+
+    return img
+
+
+def make_answer_key_slide(
+    questions: List[MCQQuestion],
+    page_index: int = 0,
+    total_pages: int = 1,
+    cfg: VideoConfig = DEFAULT_CONFIG,
+) -> Image.Image:
+    """Answer-key slide listing all correct answers."""
+    img = _gradient_background(cfg)
+    draw = ImageDraw.Draw(img)
+
+    font_header = _load_font(cfg.font_bold, cfg.font_size_label)
+    font_num = _load_font(cfg.font_bold, cfg.font_size_small)
+    font_label = _load_font(cfg.font_bold, cfg.font_size_small - 4)
+    font_text = _load_font(cfg.font_regular, cfg.font_size_small - 2)
+
+    cx = cfg.width // 2
+    pad = cfg.padding
+    content_width = cfg.width - 2 * pad
+
+    # Header banner
+    draw.rectangle([0, 0, cfg.width, _AK_BANNER_H], fill=cfg.accent_color)
+    header_text = (
+        f"📋  ANSWER KEY  ({page_index + 1}/{total_pages})"
+        if total_pages > 1
+        else "📋  ANSWER KEY"
+    )
+    draw.text((cx, _AK_BANNER_H // 2), header_text, font=font_header, fill=(255, 255, 255), anchor="mm")
+
+    # Answer rows
+    start_y = _AK_BANNER_H + _AK_TOP_MARGIN
+    max_per_page = max(1, (cfg.height - start_y - _AK_BOTTOM_PAD) // _AK_ROW_H)
+    start_idx = page_index * max_per_page
+    page_questions = questions[start_idx : start_idx + max_per_page]
+
+    for i, q in enumerate(page_questions):
+        global_idx = start_idx + i
+        y = start_y + i * _AK_ROW_H
+        mid_y = y + _AK_ROW_H // 2
+
+        # Row background
+        _rounded_rect(draw, (pad, y + 8, cfg.width - pad, y + _AK_ROW_H - 8), 20, (255, 255, 255, 20))
+
+        # Question number
+        draw.text((pad + 20, mid_y), f"Q{global_idx + 1}.", font=font_num, fill=cfg.muted_color, anchor="lm")
+
+        # Correct answer circle
+        label_x = pad + 130
+        circle_r = 30
+        draw.ellipse(
+            [label_x - circle_r, mid_y - circle_r, label_x + circle_r, mid_y + circle_r],
+            fill=cfg.correct_color,
+        )
+        draw.text(
+            (label_x, mid_y),
+            OPTION_LABELS[q.correct_option],
+            font=font_label,
+            fill=(255, 255, 255),
+            anchor="mm",
+        )
+
+        # Answer text
+        draw.text(
+            (label_x + circle_r + 20, mid_y),
+            q.correct_text,
+            font=font_text,
+            fill=cfg.text_color,
+            anchor="lm",
         )
 
     return img

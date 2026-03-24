@@ -11,6 +11,20 @@ const DEFAULT_QUESTION = () => ({
 });
 
 const OPTION_LABELS = ['A', 'B', 'C', 'D'];
+const MAX_QUESTIONS = 10;
+
+const SAMPLE_JSON = `{
+  "title": "My Quiz",
+  "questions": [
+    {
+      "question": "What is the capital of France?",
+      "options": ["London", "Berlin", "Paris", "Madrid"],
+      "correct_option": 2,
+      "explanation": "Paris has been the capital since 987 AD."
+    }
+  ],
+  "hashtags": ["#shorts", "#quiz"]
+}`;
 
 export default function Home() {
   const [title, setTitle] = useState('');
@@ -20,6 +34,9 @@ export default function Home() {
   const [progress, setProgress] = useState(0);
   const [videoUrl, setVideoUrl] = useState(null);
   const [errorMsg, setErrorMsg] = useState('');
+  const [inputMode, setInputMode] = useState('form'); // 'form' | 'json'
+  const [jsonInput, setJsonInput] = useState('');
+  const [jsonError, setJsonError] = useState('');
 
   // --- Question helpers ---
 
@@ -37,11 +54,65 @@ export default function Home() {
   }, []);
 
   const addQuestion = () => {
-    if (questions.length < 10) setQuestions((qs) => [...qs, DEFAULT_QUESTION()]);
+    if (questions.length < MAX_QUESTIONS) setQuestions((qs) => [...qs, DEFAULT_QUESTION()]);
   };
 
   const removeQuestion = (qi) => {
     if (questions.length > 1) setQuestions((qs) => qs.filter((_, i) => i !== qi));
+  };
+
+  // --- JSON helpers ---
+
+  const parseJsonInput = (raw) => {
+    const data = JSON.parse(raw);
+    if (!data.questions || !Array.isArray(data.questions) || data.questions.length === 0) {
+      throw new Error('JSON must contain a non-empty "questions" array');
+    }
+    if (data.questions.length > MAX_QUESTIONS) {
+      throw new Error(`Maximum ${MAX_QUESTIONS} questions allowed`);
+    }
+    for (let i = 0; i < data.questions.length; i++) {
+      const q = data.questions[i];
+      if (!q.question || typeof q.question !== 'string') {
+        throw new Error(`Question ${i + 1}: missing or invalid "question" text`);
+      }
+      if (!Array.isArray(q.options) || q.options.length !== 4) {
+        throw new Error(`Question ${i + 1}: must have exactly 4 options`);
+      }
+      if (typeof q.correct_option !== 'number' || q.correct_option < 0 || q.correct_option > 3) {
+        throw new Error(`Question ${i + 1}: "correct_option" must be 0–3`);
+      }
+    }
+    return {
+      title: (data.title || 'Quiz').trim(),
+      questions: data.questions.map((q) => ({
+        question: q.question.trim(),
+        options: q.options.map((o) => String(o).trim()),
+        correctOption: q.correct_option,
+        explanation: q.explanation ? q.explanation.trim() : null,
+      })),
+      hashtags: Array.isArray(data.hashtags)
+        ? data.hashtags
+        : (data.hashtags || '#shorts #quiz #mcq').split(/[\s,]+/).filter(Boolean),
+    };
+  };
+
+  const loadJsonToForm = () => {
+    setJsonError('');
+    try {
+      const parsed = parseJsonInput(jsonInput);
+      setTitle(parsed.title);
+      setQuestions(parsed.questions.map((q) => ({
+        question: q.question,
+        options: q.options,
+        correctOption: q.correctOption,
+        explanation: q.explanation || '',
+      })));
+      setHashtags(parsed.hashtags.join(' '));
+      setInputMode('form');
+    } catch (err) {
+      setJsonError(err.message);
+    }
   };
 
   // --- Generate ---
@@ -55,16 +126,21 @@ export default function Home() {
     try {
       const { generateVideo } = await import('../lib/engine');
 
-      const quiz = {
-        title: title.trim() || 'Quiz',
-        questions: questions.map((q) => ({
-          question: q.question.trim(),
-          options: q.options.map((o) => o.trim()),
-          correctOption: q.correctOption,
-          explanation: q.explanation.trim() || null,
-        })),
-        hashtags: hashtags.split(/[\s,]+/).filter(Boolean),
-      };
+      let quiz;
+      if (inputMode === 'json') {
+        quiz = parseJsonInput(jsonInput);
+      } else {
+        quiz = {
+          title: title.trim() || 'Quiz',
+          questions: questions.map((q) => ({
+            question: q.question.trim(),
+            options: q.options.map((o) => o.trim()),
+            correctOption: q.correctOption,
+            explanation: q.explanation.trim() || null,
+          })),
+          hashtags: hashtags.split(/[\s,]+/).filter(Boolean),
+        };
+      }
 
       const blob = await generateVideo(quiz, { fps: 30 }, (p) => setProgress(p));
       const url = URL.createObjectURL(blob);
@@ -94,83 +170,120 @@ export default function Home() {
       </header>
 
       <div className={styles.container}>
-        {/* Quiz title */}
-        <section className={styles.card}>
-          <label className={styles.label}>Quiz Title</label>
-          <input
-            className={styles.input}
-            type="text"
-            placeholder="e.g. Geography Quiz"
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
-          />
-        </section>
+        {/* Input mode toggle */}
+        <div className={styles.modeToggle}>
+          <button
+            className={`${styles.modeBtn} ${inputMode === 'form' ? styles.modeBtnActive : ''}`}
+            onClick={() => setInputMode('form')}
+          >
+            📝 Form
+          </button>
+          <button
+            className={`${styles.modeBtn} ${inputMode === 'json' ? styles.modeBtnActive : ''}`}
+            onClick={() => setInputMode('json')}
+          >
+            {'{ } JSON'}
+          </button>
+        </div>
 
-        {/* Questions */}
-        {questions.map((q, qi) => (
-          <section key={qi} className={styles.card}>
-            <div className={styles.cardHeader}>
-              <span className={styles.qLabel}>Question {qi + 1}</span>
-              {questions.length > 1 && (
-                <button className={styles.removeBtn} onClick={() => removeQuestion(qi)} title="Remove question">✕</button>
-              )}
-            </div>
-
-            <label className={styles.label}>Question text</label>
+        {inputMode === 'json' ? (
+          /* JSON input */
+          <section className={styles.card}>
+            <label className={styles.label}>Paste Quiz JSON</label>
             <textarea
-              className={styles.textarea}
-              rows={3}
-              placeholder="What is the capital of France?"
-              value={q.question}
-              onChange={(e) => updateQuestion(qi, 'question', e.target.value)}
+              className={styles.jsonTextarea}
+              rows={14}
+              placeholder={SAMPLE_JSON}
+              value={jsonInput}
+              onChange={(e) => { setJsonInput(e.target.value); setJsonError(''); }}
             />
+            {jsonError && <p className={styles.error}>{jsonError}</p>}
+            <button className={styles.addBtn} onClick={loadJsonToForm}>
+              Load into Form Editor →
+            </button>
+          </section>
+        ) : (
+          /* Form input */
+          <>
+            {/* Quiz title */}
+            <section className={styles.card}>
+              <label className={styles.label}>Quiz Title</label>
+              <input
+                className={styles.input}
+                type="text"
+                placeholder="e.g. Geography Quiz"
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+              />
+            </section>
 
-            <label className={styles.label}>Options</label>
-            {q.options.map((opt, oi) => (
-              <div key={oi} className={styles.optionRow}>
-                <button
-                  className={`${styles.optionLabel} ${q.correctOption === oi ? styles.optionLabelCorrect : ''}`}
-                  onClick={() => updateQuestion(qi, 'correctOption', oi)}
-                  title="Mark as correct"
-                >
-                  {OPTION_LABELS[oi]}
-                </button>
+            {/* Questions */}
+            {questions.map((q, qi) => (
+              <section key={qi} className={styles.card}>
+                <div className={styles.cardHeader}>
+                  <span className={styles.qLabel}>Question {qi + 1}</span>
+                  {questions.length > 1 && (
+                    <button className={styles.removeBtn} onClick={() => removeQuestion(qi)} title="Remove question">✕</button>
+                  )}
+                </div>
+
+                <label className={styles.label}>Question text</label>
+                <textarea
+                  className={styles.textarea}
+                  rows={3}
+                  placeholder="What is the capital of France?"
+                  value={q.question}
+                  onChange={(e) => updateQuestion(qi, 'question', e.target.value)}
+                />
+
+                <label className={styles.label}>Options</label>
+                {q.options.map((opt, oi) => (
+                  <div key={oi} className={styles.optionRow}>
+                    <button
+                      className={`${styles.optionLabel} ${q.correctOption === oi ? styles.optionLabelCorrect : ''}`}
+                      onClick={() => updateQuestion(qi, 'correctOption', oi)}
+                      title="Mark as correct"
+                    >
+                      {OPTION_LABELS[oi]}
+                    </button>
+                    <input
+                      className={styles.input}
+                      type="text"
+                      placeholder={`Option ${OPTION_LABELS[oi]}`}
+                      value={opt}
+                      onChange={(e) => updateOption(qi, oi, e.target.value)}
+                    />
+                  </div>
+                ))}
+                <p className={styles.hint}>Click A / B / C / D to mark the correct answer</p>
+
+                <label className={styles.label}>Explanation (optional)</label>
                 <input
                   className={styles.input}
                   type="text"
-                  placeholder={`Option ${OPTION_LABELS[oi]}`}
-                  value={opt}
-                  onChange={(e) => updateOption(qi, oi, e.target.value)}
+                  placeholder="Short explanation shown after the answer…"
+                  value={q.explanation}
+                  onChange={(e) => updateQuestion(qi, 'explanation', e.target.value)}
                 />
-              </div>
+              </section>
             ))}
-            <p className={styles.hint}>Click A / B / C / D to mark the correct answer</p>
 
-            <label className={styles.label}>Explanation (optional)</label>
-            <input
-              className={styles.input}
-              type="text"
-              placeholder="Short explanation shown after the answer…"
-              value={q.explanation}
-              onChange={(e) => updateQuestion(qi, 'explanation', e.target.value)}
-            />
-          </section>
-        ))}
+            {questions.length < MAX_QUESTIONS && (
+              <button className={styles.addBtn} onClick={addQuestion}>+ Add Question</button>
+            )}
 
-        {questions.length < 10 && (
-          <button className={styles.addBtn} onClick={addQuestion}>+ Add Question</button>
+            {/* Hashtags */}
+            <section className={styles.card}>
+              <label className={styles.label}>Hashtags</label>
+              <input
+                className={styles.input}
+                type="text"
+                value={hashtags}
+                onChange={(e) => setHashtags(e.target.value)}
+              />
+            </section>
+          </>
         )}
-
-        {/* Hashtags */}
-        <section className={styles.card}>
-          <label className={styles.label}>Hashtags</label>
-          <input
-            className={styles.input}
-            type="text"
-            value={hashtags}
-            onChange={(e) => setHashtags(e.target.value)}
-          />
-        </section>
 
         {/* Generate button */}
         <button
