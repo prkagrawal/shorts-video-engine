@@ -11,6 +11,7 @@ const DEFAULT_QUESTION = () => ({
 });
 
 const OPTION_LABELS = ['A', 'B', 'C', 'D'];
+const MAX_QUESTIONS = 10;
 
 const SAMPLE_JSON = `{
   "title": "My Quiz",
@@ -53,7 +54,7 @@ export default function Home() {
   }, []);
 
   const addQuestion = () => {
-    if (questions.length < 10) setQuestions((qs) => [...qs, DEFAULT_QUESTION()]);
+    if (questions.length < MAX_QUESTIONS) setQuestions((qs) => [...qs, DEFAULT_QUESTION()]);
   };
 
   const removeQuestion = (qi) => {
@@ -67,8 +68,8 @@ export default function Home() {
     if (!data.questions || !Array.isArray(data.questions) || data.questions.length === 0) {
       throw new Error('JSON must contain a non-empty "questions" array');
     }
-    if (data.questions.length > 10) {
-      throw new Error('Maximum 10 questions allowed');
+    if (data.questions.length > MAX_QUESTIONS) {
+      throw new Error(`Maximum ${MAX_QUESTIONS} questions allowed`);
     }
     for (let i = 0; i < data.questions.length; i++) {
       const q = data.questions[i];
@@ -267,7 +268,7 @@ export default function Home() {
               </section>
             ))}
 
-            {questions.length < 10 && (
+            {questions.length < MAX_QUESTIONS && (
               <button className={styles.addBtn} onClick={addQuestion}>+ Add Question</button>
             )}
 

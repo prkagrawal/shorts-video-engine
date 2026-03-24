@@ -10,6 +10,12 @@ from PIL import Image, ImageDraw, ImageFont
 from .config import VideoConfig, DEFAULT_CONFIG, COLOUR
 from .models import MCQQuestion, OPTION_LABELS
 
+# Answer-key layout constants (shared with video_engine for page calculation)
+_AK_BANNER_H = 120
+_AK_ROW_H = 140
+_AK_TOP_MARGIN = 40
+_AK_BOTTOM_PAD = 100
+
 
 # ---------------------------------------------------------------------------
 # Internal helpers
@@ -291,29 +297,27 @@ def make_answer_key_slide(
     content_width = cfg.width - 2 * pad
 
     # Header banner
-    banner_h = 120
-    draw.rectangle([0, 0, cfg.width, banner_h], fill=cfg.accent_color)
+    draw.rectangle([0, 0, cfg.width, _AK_BANNER_H], fill=cfg.accent_color)
     header_text = (
         f"📋  ANSWER KEY  ({page_index + 1}/{total_pages})"
         if total_pages > 1
         else "📋  ANSWER KEY"
     )
-    draw.text((cx, banner_h // 2), header_text, font=font_header, fill=(255, 255, 255), anchor="mm")
+    draw.text((cx, _AK_BANNER_H // 2), header_text, font=font_header, fill=(255, 255, 255), anchor="mm")
 
     # Answer rows
-    start_y = banner_h + 40
-    row_h = 140
-    max_per_page = max(1, (cfg.height - start_y - 100) // row_h)
+    start_y = _AK_BANNER_H + _AK_TOP_MARGIN
+    max_per_page = max(1, (cfg.height - start_y - _AK_BOTTOM_PAD) // _AK_ROW_H)
     start_idx = page_index * max_per_page
     page_questions = questions[start_idx : start_idx + max_per_page]
 
     for i, q in enumerate(page_questions):
         global_idx = start_idx + i
-        y = start_y + i * row_h
-        mid_y = y + row_h // 2
+        y = start_y + i * _AK_ROW_H
+        mid_y = y + _AK_ROW_H // 2
 
         # Row background
-        _rounded_rect(draw, (pad, y + 8, cfg.width - pad, y + row_h - 8), 20, (255, 255, 255, 20))
+        _rounded_rect(draw, (pad, y + 8, cfg.width - pad, y + _AK_ROW_H - 8), 20, (255, 255, 255, 20))
 
         # Question number
         draw.text((pad + 20, mid_y), f"Q{global_idx + 1}.", font=font_num, fill=cfg.muted_color, anchor="lm")
