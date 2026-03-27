@@ -271,5 +271,7 @@ class TestBranding:
         # Sample a pixel inside the banner region
         banner_y = self.BRANDED_CFG.height - _PROMO_BANNER_H // 2
         px = img.getpixel((self.BRANDED_CFG.width // 2, banner_y))
-        # The banner overlay darkens the gradient, so R+G+B should be low
-        assert sum(px[:3]) < 300  # reasonably dark
+        # The banner overlay darkens the gradient; R+G+B should be low.
+        # Threshold chosen so even a bright gradient pixel is visibly darkened.
+        max_brightness = 300
+        assert sum(px[:3]) < max_brightness

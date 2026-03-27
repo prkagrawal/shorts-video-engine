@@ -93,7 +93,7 @@ class VideoConfig:
 
     # --- Branding ---
     watermark_text: str = "apnatestprep.com"
-    watermark_opacity: int = 38      # 0–255 alpha (~15 % visible)
+    watermark_opacity: int = 38      # 0–255 alpha (38/255 ≈ 15 % visible)
     banner_text: str = "📚 Full Notes + Free Mock | apnatestprep.com"
     banner_enabled: bool = True
 

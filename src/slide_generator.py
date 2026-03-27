@@ -18,6 +18,7 @@ _AK_BOTTOM_PAD = 100
 
 # Promo-banner layout constant (height of the bottom banner)
 _PROMO_BANNER_H = 80
+_BANNER_PAD = 20  # horizontal padding inside the banner
 
 
 # ---------------------------------------------------------------------------
@@ -116,7 +117,7 @@ def _draw_promo_banner(img: Image.Image, cfg: VideoConfig) -> None:
         fill=(0, 0, 0, 140),
     )
     # Scale font so the banner text fits within the canvas width (with padding)
-    max_w = cfg.width - 2 * 20  # 20 px padding each side
+    max_w = cfg.width - 2 * _BANNER_PAD
     size = cfg.font_size_small - 8
     font = _load_font(cfg.font_bold, size)
     while font.getlength(cfg.banner_text) > max_w and size > 14:
