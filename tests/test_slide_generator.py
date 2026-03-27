@@ -183,30 +183,29 @@ class TestDynamicTiming:
 
     def test_short_question_gets_minimum_duration(self):
         cfg = VideoConfig()
-        dur = cfg.compute_question_duration("Hi?", ["A", "B", "C", "D"])
+        dur = cfg.compute_question_duration("Hi?")
         assert dur == cfg.min_question_duration
 
     def test_long_question_gets_capped_duration(self):
         cfg = VideoConfig()
         long_text = " ".join(["word"] * 500)
-        dur = cfg.compute_question_duration(long_text, ["A", "B", "C", "D"])
+        dur = cfg.compute_question_duration(long_text)
         assert dur == cfg.max_question_duration
 
     def test_medium_question_between_min_max(self):
         cfg = VideoConfig()
         medium = "What is the primary function of a cellular network base station in modern telecommunications?"
-        opts = ["Route calls", "Amplify signals", "Provide wireless coverage", "Store data"]
-        dur = cfg.compute_question_duration(medium, opts)
+        dur = cfg.compute_question_duration(medium)
         assert cfg.min_question_duration <= dur <= cfg.max_question_duration
 
     def test_dynamic_timing_disabled_returns_fixed(self):
         cfg = VideoConfig(dynamic_timing=False, question_duration=5.0)
-        dur = cfg.compute_question_duration("Any text?", ["A", "B", "C", "D"])
+        dur = cfg.compute_question_duration("Any text?")
         assert dur == 5.0
 
     def test_think_duration_dynamic(self):
         cfg = VideoConfig(dynamic_timing=True)
-        assert cfg.compute_think_duration() == 2.0
+        assert cfg.compute_think_duration() == 1.5
 
     def test_think_duration_disabled(self):
         cfg = VideoConfig(dynamic_timing=False, think_duration=3.0)

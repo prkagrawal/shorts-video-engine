@@ -77,11 +77,11 @@ class VideoConfig:
 
     # --- Dynamic timing (word-count-based) ---
     dynamic_timing: bool = True      # enable word-count-based durations
-    reading_wpm: float = 180.0       # assumed words-per-minute for viewers
-    min_question_duration: float = 3.0
-    max_question_duration: float = 8.0
-    min_answer_duration: float = 2.5
-    max_answer_duration: float = 5.0
+    reading_wpm: float = 200.0       # assumed words-per-minute for viewers
+    min_question_duration: float = 2.5
+    max_question_duration: float = 6.0
+    min_answer_duration: float = 2.0
+    max_answer_duration: float = 4.0
 
     # --- Layout ---
     padding: int = 80                # horizontal margin
@@ -111,11 +111,16 @@ class VideoConfig:
         """Convert a word count to seconds using configured reading speed."""
         return (word_count / self.reading_wpm) * 60.0
 
-    def compute_question_duration(self, question_text: str, options: list[str]) -> float:
-        """Return dynamic question+options reading duration (seconds)."""
+    def compute_question_duration(self, question_text: str, options: list[str] | None = None) -> float:
+        """Return dynamic question reading duration (seconds).
+
+        Only the question text is counted — option words are short labels
+        that viewers scan quickly, so they are excluded to keep overall
+        video length tight for Reels / Shorts.
+        """
         if not self.dynamic_timing:
             return self.question_duration
-        words = len(question_text.split()) + sum(len(o.split()) for o in options)
+        words = len(question_text.split())
         raw = self._words_to_seconds(words)
         return max(self.min_question_duration, min(raw, self.max_question_duration))
 
@@ -124,7 +129,7 @@ class VideoConfig:
         if not self.dynamic_timing:
             return self.think_duration
         # Shorter fixed pause — viewers can always pause the video
-        return 2.0
+        return 1.5
 
     def compute_answer_duration(
         self, answer_text: str, explanation: str | None = None,

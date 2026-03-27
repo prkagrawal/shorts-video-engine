@@ -86,9 +86,10 @@ def _rounded_rect(
 
 
 def _draw_watermark(img: Image.Image, cfg: VideoConfig) -> None:
-    """Draw a bold, low-opacity centred watermark on *img*."""
+    """Draw a bold, low-opacity diagonal watermark on *img*."""
     if not cfg.watermark_text:
         return
+    # Draw text on a separate RGBA overlay, then rotate and composite
     overlay = Image.new("RGBA", img.size, (0, 0, 0, 0))
     odraw = ImageDraw.Draw(overlay)
     # Scale font so the text fits within ~80 % of the canvas width
@@ -101,7 +102,9 @@ def _draw_watermark(img: Image.Image, cfg: VideoConfig) -> None:
     fill = (*cfg.text_color, cfg.watermark_opacity)
     cx, cy = cfg.width // 2, cfg.height // 2
     odraw.text((cx, cy), cfg.watermark_text, font=font, fill=fill, anchor="mm")
-    # Composite the RGBA overlay onto the RGB image
+    # Rotate the overlay -30° (diagonal, bottom-left to top-right)
+    overlay = overlay.rotate(30, center=(cx, cy), expand=False)
+    # Composite the rotated RGBA overlay onto the RGB image
     img.paste(Image.alpha_composite(img.convert("RGBA"), overlay).convert("RGB"))
 
 
