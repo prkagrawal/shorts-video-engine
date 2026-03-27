@@ -72,27 +72,35 @@ def _build_question_clips(
     """Build the three video clips (question, think, answer) for one MCQ."""
     clips = []
 
+    # Compute per-question dynamic durations
+    q_dur = cfg.compute_question_duration(question.question, question.options)
+    t_dur = cfg.compute_think_duration()
+    a_dur = cfg.compute_answer_duration(
+        question.correct_text,
+        question.explanation,
+    )
+
     # 1. Question + options slide
     q_img = make_question_slide(question, q_number, total, cfg)
-    q_clip = _pil_to_clip(q_img, cfg.question_duration, cfg.fps)
+    q_clip = _pil_to_clip(q_img, q_dur, cfg.fps)
     if cfg.audio_enabled:
         narration = build_question_narration(question, q_number)
-        audio = _audio_clip_for_text(narration, cfg.question_duration, cfg)
+        audio = _audio_clip_for_text(narration, q_dur, cfg)
         if audio:
             q_clip = q_clip.with_audio(audio)
     clips.append(q_clip)
 
     # 2. Think slide (silent pause)
     t_img = make_think_slide(question, q_number, total, cfg)
-    t_clip = _pil_to_clip(t_img, cfg.think_duration, cfg.fps)
+    t_clip = _pil_to_clip(t_img, t_dur, cfg.fps)
     clips.append(t_clip)
 
     # 3. Answer slide
     a_img = make_answer_slide(question, q_number, total, cfg)
-    a_clip = _pil_to_clip(a_img, cfg.answer_duration, cfg.fps)
+    a_clip = _pil_to_clip(a_img, a_dur, cfg.fps)
     if cfg.audio_enabled:
         narration = build_answer_narration(question)
-        audio = _audio_clip_for_text(narration, cfg.answer_duration, cfg)
+        audio = _audio_clip_for_text(narration, a_dur, cfg)
         if audio:
             a_clip = a_clip.with_audio(audio)
     clips.append(a_clip)
