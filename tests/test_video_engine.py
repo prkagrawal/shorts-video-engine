@@ -2,6 +2,7 @@
 
 import os
 import tempfile
+from unittest.mock import patch, MagicMock
 
 import pytest
 
@@ -96,3 +97,30 @@ class TestGenerateVideo:
             out = os.path.join(tmpdir, "explained.mp4")
             result = generate_video(quiz, out, FAST_CFG)
             assert os.path.isfile(result)
+
+
+class TestKeyframeParams:
+    """Verify that keyframe-related ffmpeg parameters are passed."""
+
+    def test_write_videofile_receives_keyframe_params(self):
+        quiz = _sample_quiz(1)
+        with tempfile.TemporaryDirectory() as tmpdir:
+            out = os.path.join(tmpdir, "test.mp4")
+            with patch(
+                "src.video_engine.concatenate_videoclips"
+            ) as mock_concat:
+                mock_final = MagicMock()
+                mock_concat.return_value = mock_final
+                generate_video(quiz, out, FAST_CFG)
+                mock_final.write_videofile.assert_called_once()
+                call_kwargs = mock_final.write_videofile.call_args
+                ffmpeg_params = call_kwargs.kwargs.get(
+                    "ffmpeg_params"
+                ) or call_kwargs[1].get("ffmpeg_params")
+                assert "-g" in ffmpeg_params
+                assert str(FAST_CFG.fps) in ffmpeg_params
+                assert "-keyint_min" in ffmpeg_params
+                assert "-sc_threshold" in ffmpeg_params
+                assert "0" in ffmpeg_params
+                assert "-movflags" in ffmpeg_params
+                assert "+faststart" in ffmpeg_params

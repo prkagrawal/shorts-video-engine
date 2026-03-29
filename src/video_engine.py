@@ -159,6 +159,12 @@ def generate_video(
         codec="libx264",
         audio_codec="aac",
         logger=None,
+        ffmpeg_params=[
+            "-g", str(cfg.fps),
+            "-keyint_min", str(cfg.fps),
+            "-sc_threshold", "0",
+            "-movflags", "+faststart",
+        ],
     )
 
     return os.path.abspath(output_path)
