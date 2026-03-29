@@ -16,6 +16,10 @@ _AK_ROW_H = 140
 _AK_TOP_MARGIN = 40
 _AK_BOTTOM_PAD = 100
 
+# Promo-banner layout constant (height of the bottom banner)
+_PROMO_BANNER_H = 80
+_BANNER_PAD = 20  # horizontal padding inside the banner
+
 
 # ---------------------------------------------------------------------------
 # Internal helpers
@@ -81,6 +85,60 @@ def _rounded_rect(
     draw.rounded_rectangle([x0, y0, x1, y1], radius=radius, fill=fill)
 
 
+def _draw_watermark(img: Image.Image, cfg: VideoConfig) -> None:
+    """Draw a bold, low-opacity diagonal watermark on *img*."""
+    if not cfg.watermark_text:
+        return
+    # Draw text on a separate RGBA overlay, then rotate and composite
+    overlay = Image.new("RGBA", img.size, (0, 0, 0, 0))
+    odraw = ImageDraw.Draw(overlay)
+    # Scale font so the text fits within ~80 % of the canvas width
+    max_w = int(cfg.width * 0.8)
+    size = cfg.font_size_title
+    font = _load_font(cfg.font_bold, size)
+    while font.getlength(cfg.watermark_text) > max_w and size > 20:
+        size -= 2
+        font = _load_font(cfg.font_bold, size)
+    fill = (*cfg.text_color, cfg.watermark_opacity)
+    cx, cy = cfg.width // 2, cfg.height // 2
+    odraw.text((cx, cy), cfg.watermark_text, font=font, fill=fill, anchor="mm")
+    # Rotate the overlay -30° (diagonal, bottom-left to top-right)
+    overlay = overlay.rotate(30, center=(cx, cy), expand=False)
+    # Composite the rotated RGBA overlay onto the RGB image
+    img.paste(Image.alpha_composite(img.convert("RGBA"), overlay).convert("RGB"))
+
+
+def _draw_promo_banner(img: Image.Image, cfg: VideoConfig) -> None:
+    """Draw a semi-transparent promo banner at the bottom of *img*."""
+    if not cfg.banner_enabled or not cfg.banner_text:
+        return
+    overlay = Image.new("RGBA", img.size, (0, 0, 0, 0))
+    odraw = ImageDraw.Draw(overlay)
+    banner_y = cfg.height - _PROMO_BANNER_H
+    odraw.rectangle(
+        [0, banner_y, cfg.width, cfg.height],
+        fill=(0, 0, 0, 140),
+    )
+    # Scale font so the banner text fits within the canvas width (with padding)
+    max_w = cfg.width - 2 * _BANNER_PAD
+    size = cfg.font_size_small - 8
+    font = _load_font(cfg.font_bold, size)
+    while font.getlength(cfg.banner_text) > max_w and size > 14:
+        size -= 2
+        font = _load_font(cfg.font_bold, size)
+    cx = cfg.width // 2
+    mid_y = banner_y + _PROMO_BANNER_H // 2
+    odraw.text((cx, mid_y), cfg.banner_text, font=font, fill=(255, 255, 255, 230), anchor="mm")
+    img.paste(Image.alpha_composite(img.convert("RGBA"), overlay).convert("RGB"))
+
+
+def _apply_branding(img: Image.Image, cfg: VideoConfig) -> Image.Image:
+    """Apply watermark + promo banner onto *img* (mutates in-place, also returns it)."""
+    _draw_watermark(img, cfg)
+    _draw_promo_banner(img, cfg)
+    return img
+
+
 # ---------------------------------------------------------------------------
 # Public slide-creation functions
 # ---------------------------------------------------------------------------
@@ -110,7 +168,7 @@ def make_intro_slide(quiz_title: str, total_questions: int, cfg: VideoConfig = D
     # Bottom bar
     draw.rectangle([cfg.padding, cfg.height - cfg.padding - bar_h, cfg.width - cfg.padding, cfg.height - cfg.padding], fill=cfg.accent_color)
 
-    return img
+    return _apply_branding(img, cfg)
 
 
 def make_question_slide(
@@ -179,7 +237,7 @@ def make_question_slide(
         text_y = cy_c
         draw.text((text_x, text_y), text, font=font_opt, fill=cfg.text_color, anchor="lm")
 
-    return img
+    return _apply_branding(img, cfg)
 
 
 def make_think_slide(
@@ -274,7 +332,7 @@ def make_answer_slide(
             content_width,
         )
 
-    return img
+    return _apply_branding(img, cfg)
 
 
 def make_answer_key_slide(
@@ -346,7 +404,7 @@ def make_answer_key_slide(
             anchor="lm",
         )
 
-    return img
+    return _apply_branding(img, cfg)
 
 
 def make_outro_slide(quiz_title: str, cfg: VideoConfig = DEFAULT_CONFIG) -> Image.Image:
@@ -367,7 +425,7 @@ def make_outro_slide(quiz_title: str, cfg: VideoConfig = DEFAULT_CONFIG) -> Imag
     draw.text((cx, mid_y + 160), "Like & Subscribe for more!", font=font_small, fill=cfg.muted_color, anchor="mm")
     draw.text((cx, mid_y + 240), "👍  🔔  📲", font=font_mid, fill=cfg.text_color, anchor="mm")
 
-    return img
+    return _apply_branding(img, cfg)
 
 
 def slides_for_question(

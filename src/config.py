@@ -71,9 +71,17 @@ class VideoConfig:
     font_size_small: int = 40
 
     # --- Timing (seconds per segment) ---
-    question_duration: float = 4.0   # question + options display
-    think_duration: float = 3.0      # "Think…" pause
-    answer_duration: float = 3.5     # answer reveal
+    question_duration: float = 4.0   # question + options display (fallback)
+    think_duration: float = 3.0      # "Think…" pause (fallback)
+    answer_duration: float = 3.5     # answer reveal (fallback)
+
+    # --- Dynamic timing (word-count-based) ---
+    dynamic_timing: bool = True      # enable word-count-based durations
+    reading_wpm: float = 200.0       # assumed words-per-minute for viewers
+    min_question_duration: float = 2.5
+    max_question_duration: float = 6.0
+    min_answer_duration: float = 2.0
+    max_answer_duration: float = 4.0
 
     # --- Layout ---
     padding: int = 80                # horizontal margin
@@ -83,6 +91,12 @@ class VideoConfig:
     audio_enabled: bool = True       # set False to skip TTS (faster, offline)
     audio_lang: str = "en"
 
+    # --- Branding ---
+    watermark_text: str = "apnatestprep.com"
+    watermark_opacity: int = 38      # 0–255 alpha (38/255 ≈ 15 % visible)
+    banner_text: str = "📚 Full Notes + Free Mock | apnatestprep.com"
+    banner_enabled: bool = True
+
     @property
     def size(self) -> Tuple[int, int]:
         return (self.width, self.height)
@@ -90,6 +104,44 @@ class VideoConfig:
     @property
     def total_duration_per_question(self) -> float:
         return self.question_duration + self.think_duration + self.answer_duration
+
+    # ---- dynamic-duration helpers ----
+
+    def _words_to_seconds(self, word_count: int) -> float:
+        """Convert a word count to seconds using configured reading speed."""
+        return (word_count / self.reading_wpm) * 60.0
+
+    def compute_question_duration(self, question_text: str, options: list[str] | None = None) -> float:
+        """Return dynamic question reading duration (seconds).
+
+        Only the question text is counted — option words are short labels
+        that viewers scan quickly, so they are excluded to keep overall
+        video length tight for Reels / Shorts.
+        """
+        if not self.dynamic_timing:
+            return self.question_duration
+        words = len(question_text.split())
+        raw = self._words_to_seconds(words)
+        return max(self.min_question_duration, min(raw, self.max_question_duration))
+
+    def compute_think_duration(self) -> float:
+        """Return the think-pause duration (seconds)."""
+        if not self.dynamic_timing:
+            return self.think_duration
+        # Shorter fixed pause — viewers can always pause the video
+        return 1.5
+
+    def compute_answer_duration(
+        self, answer_text: str, explanation: str | None = None,
+    ) -> float:
+        """Return dynamic answer-reveal duration (seconds)."""
+        if not self.dynamic_timing:
+            return self.answer_duration
+        text = answer_text
+        if explanation:
+            text += " " + explanation
+        raw = self._words_to_seconds(len(text.split()))
+        return max(self.min_answer_duration, min(raw, self.max_answer_duration))
 
 
 # Shared default instance — callers can override individual fields.
